@@ -1,0 +1,4843 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperHero City 4K</title>
+  <meta name="description" content="3D superhero action game in Three.js with 5 heroes, missions, free roam, and PeerJS online multiplayer." />
+  <meta property="og:title" content="SuperHero City 4K" />
+  <meta property="og:description" content="3D superhero action game in Three.js with 5 heroes, missions, free roam, and PeerJS online multiplayer." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- PeerJS CDN for WebRTC peer-to-peer multiplayer -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --bg-panel: rgba(11, 15, 25, 0.88);
+      --bg-surface: rgba(20, 27, 44, 0.92);
+      --border-hairline: rgba(255, 255, 255, 0.12);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #f59e0b;
+      --accent-hover: #fbbf24;
+      --blue: #3b82f6;
+      --red: #ef4444;
+      --green: #10b981;
+      --cyan: #06b6d4;
+      --font-display: 'Chakra Petch', system-ui, -apple-system, sans-serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #070a12;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: clamp(12px, 0.9vw, 28px);
+    }
+
+    #game-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Overlay Screens */
+    .screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      flex-direction: column;
+      pointer-events: none;
+    }
+    .screen.active {
+      display: flex;
+      pointer-events: auto;
+    }
+
+    /* Top Utility Bar (FPS, Quality, Fullscreen) */
+    #top-utility {
+      position: fixed;
+      top: 1.4vh;
+      right: 1.4vw;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      gap: 0.7vw;
+      pointer-events: auto;
+    }
+
+    .util-chip {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.45vw;
+      padding: 0.45vh 0.8vw;
+      font-size: clamp(11px, 0.75vw, 22px);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5vw;
+    }
+
+    .util-btn {
+      cursor: pointer;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.45vw;
+      padding: 0.45vh 0.85vw;
+      font-size: clamp(11px, 0.75vw, 22px);
+      font-weight: 600;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .util-btn:hover {
+      background: rgba(36, 48, 74, 0.95);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Main Menu */
+    #menu-screen {
+      background: linear-gradient(105deg, rgba(6, 9, 17, 0.94) 0%, rgba(10, 15, 28, 0.78) 52%, rgba(8, 12, 22, 0.35) 100%);
+      justify-content: center;
+      padding: 4vh 5vw;
+    }
+
+    .menu-content {
+      max-width: 38vw;
+      min-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 2.2vh;
+    }
+
+    .menu-kicker {
+      font-size: clamp(11px, 0.8vw, 24px);
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .menu-title {
+      font-family: var(--font-display);
+      font-size: clamp(32px, 4.4vw, 130px);
+      line-height: 0.98;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+
+    .menu-subtitle {
+      font-size: clamp(13px, 0.95vw, 28px);
+      line-height: 1.5;
+      color: var(--text-muted);
+      max-width: 32vw;
+    }
+
+    .menu-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2vh;
+      margin-top: 1vh;
+    }
+
+    .btn-primary, .btn-secondary {
+      cursor: pointer;
+      border-radius: 0.5vw;
+      padding: 1.4vh 1.6vw;
+      font-family: var(--font-display);
+      font-size: clamp(14px, 1.15vw, 34px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform 0.14s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #090d16;
+      border: 1px solid #fcd34d;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateX(0.3vw);
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      border: 1px solid var(--border-hairline);
+    }
+    .btn-secondary:hover {
+      background: rgba(34, 46, 74, 0.95);
+      border-color: rgba(255, 255, 255, 0.28);
+      transform: translateX(0.3vw);
+    }
+
+    .btn-connect {
+      border-color: rgba(6, 182, 212, 0.45);
+      background: rgba(12, 34, 48, 0.92);
+    }
+    .btn-connect:hover {
+      border-color: var(--cyan);
+      background: rgba(16, 48, 68, 0.96);
+    }
+
+    .btn-meta {
+      font-family: var(--font-body);
+      font-size: clamp(11px, 0.75vw, 22px);
+      font-weight: 500;
+      opacity: 0.78;
+    }
+
+    .menu-footer-controls {
+      display: flex;
+      align-items: center;
+      gap: 1vw;
+      margin-top: 1.2vh;
+      flex-wrap: wrap;
+    }
+
+    .segmented-group {
+      display: inline-flex;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.45vw;
+      padding: 0.25vh 0.25vw;
+      gap: 0.2vw;
+    }
+
+    .seg-btn {
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+      font-size: clamp(11px, 0.75vw, 22px);
+      font-weight: 600;
+      padding: 0.55vh 0.85vw;
+      border-radius: 0.3vw;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .seg-btn.active {
+      background: var(--accent);
+      color: #0b0f19;
+    }
+
+    /* Mission Picker inside Menu or Modal */
+    .panel-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      background: rgba(5, 8, 15, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2vh 2vw;
+    }
+    .panel-modal.active {
+      display: flex;
+    }
+
+    .modal-card {
+      width: min(44vw, 94vw);
+      min-width: 340px;
+      background: #0d1322;
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.8vw;
+      padding: 2.8vh 2.2vw;
+      display: flex;
+      flex-direction: column;
+      gap: 1.8vh;
+      box-shadow: 0 2vh 5vh rgba(0, 0, 0, 0.65);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-hairline);
+      padding-bottom: 1.2vh;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: clamp(18px, 1.65vw, 48px);
+      font-weight: 700;
+    }
+
+    .close-btn {
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-main);
+      border-radius: 0.35vw;
+      padding: 0.4vh 0.8vw;
+      font-size: clamp(12px, 0.8vw, 24px);
+      font-weight: 600;
+    }
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    /* Online Connect Panel */
+    .login-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.5vw;
+      padding: 1.2vh 1.2vw;
+    }
+    .login-value {
+      font-family: var(--font-display);
+      font-size: clamp(16px, 1.35vw, 40px);
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.04em;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.8vw;
+    }
+    .text-input {
+      flex: 1;
+      background: rgba(7, 10, 18, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.45vw;
+      padding: 1vh 1vw;
+      color: #ffffff;
+      font-family: var(--font-body);
+      font-size: clamp(13px, 0.95vw, 28px);
+      outline: none;
+    }
+    .text-input:focus {
+      border-color: var(--cyan);
+    }
+
+    .action-btn {
+      cursor: pointer;
+      background: var(--cyan);
+      color: #061019;
+      border: none;
+      border-radius: 0.45vw;
+      padding: 1vh 1.4vw;
+      font-family: var(--font-display);
+      font-size: clamp(13px, 0.95vw, 28px);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .action-btn:hover {
+      filter: brightness(1.1);
+    }
+    .action-btn.amber {
+      background: var(--accent);
+      color: #0b0f19;
+    }
+    .action-btn.ghost {
+      background: rgba(255, 255, 255, 0.09);
+      color: var(--text-main);
+      border: 1px solid var(--border-hairline);
+    }
+
+    .status-line {
+      font-size: clamp(12px, 0.85vw, 25px);
+      padding: 1vh 1vw;
+      border-radius: 0.45vw;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-muted);
+    }
+    .status-line.ok {
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.1);
+    }
+    .status-line.err {
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.4);
+      background: rgba(239, 68, 68, 0.1);
+    }
+    .status-line.wait {
+      color: #fde68a;
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    /* Mission List inside Mission Picker */
+    .mission-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2vh 1.1vw;
+      border-radius: 0.5vw;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-hairline);
+      cursor: pointer;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+    .mission-item:hover:not(.locked) {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.5);
+    }
+    .mission-item.locked {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .mission-item.selected {
+      border-color: var(--accent);
+      background: rgba(245, 158, 11, 0.16);
+    }
+
+    /* Character Selection Screen */
+    #char-screen {
+      justify-content: space-between;
+      padding: 2.4vh 2.6vw;
+      background: radial-gradient(circle at 50% 48%, rgba(16, 26, 48, 0.12) 0%, rgba(6, 9, 17, 0.72) 76%);
+    }
+
+    .char-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-right: 18vw;
+    }
+
+    .char-header-title {
+      font-family: var(--font-display);
+      font-size: clamp(20px, 2vw, 60px);
+      font-weight: 700;
+    }
+
+    .char-middle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex: 1;
+      pointer-events: none;
+    }
+
+    .hero-info-card {
+      width: 26vw;
+      min-width: 270px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.75vw;
+      padding: 2vh 1.6vw;
+      display: flex;
+      flex-direction: column;
+      gap: 1.4vh;
+      pointer-events: auto;
+    }
+
+    .hero-name {
+      font-family: var(--font-display);
+      font-size: clamp(22px, 2.1vw, 62px);
+      font-weight: 700;
+      line-height: 1.05;
+    }
+
+    .hero-desc {
+      font-size: clamp(12px, 0.85vw, 24px);
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .stat-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45vh;
+    }
+    .stat-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: clamp(11px, 0.76vw, 22px);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-track {
+      width: 100%;
+      height: 0.75vh;
+      min-height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .stat-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    .ability-list {
+      border-top: 1px solid var(--border-hairline);
+      padding-top: 1vh;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65vh;
+      font-size: clamp(11px, 0.75vw, 21px);
+      color: #cbd5e1;
+    }
+    .ability-list strong {
+      color: var(--accent);
+    }
+
+    .char-online-card {
+      width: 22vw;
+      min-width: 240px;
+      background: var(--bg-panel);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 0.75vw;
+      padding: 1.8vh 1.4vw;
+      display: none;
+      flex-direction: column;
+      gap: 1.2vh;
+      pointer-events: auto;
+    }
+    .char-online-card.active {
+      display: flex;
+    }
+
+    .char-bottom {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1.5vw;
+    }
+
+    .hero-roster {
+      display: flex;
+      gap: 0.8vw;
+      flex: 1;
+    }
+
+    .hero-card {
+      flex: 1;
+      cursor: pointer;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.6vw;
+      padding: 1.2vh 1vw;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5vh;
+      transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+    }
+    .hero-card:hover {
+      transform: translateY(-0.35vh);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+    .hero-card.selected {
+      border-color: var(--accent);
+      background: rgba(34, 42, 66, 0.96);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .hero-card-bar {
+      width: 100%;
+      height: 0.45vh;
+      border-radius: 99px;
+    }
+    .hero-card-name {
+      font-family: var(--font-display);
+      font-size: clamp(12px, 0.95vw, 28px);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hero-card-role {
+      font-size: clamp(10px, 0.7vw, 20px);
+      color: var(--text-muted);
+    }
+
+    .start-btn {
+      cursor: pointer;
+      background: var(--accent);
+      color: #080c15;
+      border: 1px solid #fde68a;
+      border-radius: 0.6vw;
+      padding: 1.8vh 3vw;
+      font-family: var(--font-display);
+      font-size: clamp(16px, 1.45vw, 44px);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      transition: transform 0.14s ease, background 0.14s ease;
+    }
+    .start-btn:hover {
+      background: var(--accent-hover);
+      transform: scale(1.03);
+    }
+
+    /* IN-GAME HUD */
+    #hud-screen {
+      padding: 1.4vh 1.4vw;
+      justify-content: space-between;
+    }
+
+    .hud-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.5vw;
+    }
+
+    .hud-vitals {
+      width: 20vw;
+      min-width: 220px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.6vw;
+      padding: 1.1vh 1vw;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75vh;
+    }
+
+    .hud-hero-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .hud-hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(13px, 1.05vw, 30px);
+      font-weight: 700;
+    }
+    .hud-score {
+      font-family: var(--font-display);
+      font-size: clamp(12px, 0.9vw, 26px);
+      font-weight: 700;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.28vh;
+    }
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: clamp(10px, 0.68vw, 19px);
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .bar-track {
+      height: 0.9vh;
+      min-height: 7px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .bar-hp { background: linear-gradient(90deg, #dc2626, #ef4444); height: 100%; transition: width 0.1s linear; }
+    .bar-energy { background: linear-gradient(90deg, #0284c7, #38bdf8); height: 100%; transition: width 0.1s linear; }
+    .bar-ult { background: linear-gradient(90deg, #d97706, #fbbf24); height: 100%; transition: width 0.1s linear; }
+
+    .hud-objective {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.6vw;
+      padding: 1vh 1.5vw;
+      min-width: 24vw;
+      max-width: 38vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.45vh;
+      text-align: center;
+    }
+    .obj-title {
+      font-family: var(--font-display);
+      font-size: clamp(12px, 0.95vw, 28px);
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .obj-text {
+      font-size: clamp(11px, 0.8vw, 24px);
+      color: var(--text-main);
+    }
+    .obj-sub {
+      display: flex;
+      align-items: center;
+      gap: 1.2vw;
+      font-size: clamp(11px, 0.78vw, 22px);
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+    }
+
+    #dir-arrow-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.45vw;
+      margin-top: 0.2vh;
+      font-size: clamp(11px, 0.75vw, 22px);
+      color: #fde68a;
+    }
+    #dir-arrow {
+      display: inline-block;
+      font-size: clamp(14px, 1.15vw, 34px);
+      line-height: 1;
+      transition: transform 0.08s linear;
+    }
+
+    .hud-right-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.8vh;
+      margin-top: 4.5vh;
+    }
+
+    .player-list-box {
+      background: var(--bg-panel);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 0.5vw;
+      padding: 0.9vh 1vw;
+      min-width: 15vw;
+      display: none;
+      flex-direction: column;
+      gap: 0.5vh;
+      font-size: clamp(11px, 0.74vw, 21px);
+    }
+    .player-list-box.active {
+      display: flex;
+    }
+    .plist-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1vw;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-bottom {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .controls-guide {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.6vw;
+      padding: 1vh 1.1vw;
+      max-width: 28vw;
+      font-size: clamp(10px, 0.72vw, 20px);
+      line-height: 1.45;
+      color: #cbd5e1;
+      pointer-events: auto;
+    }
+    .controls-guide-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4vh;
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .ability-bar {
+      display: flex;
+      gap: 0.6vw;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.6vw;
+      padding: 0.8vh 0.9vw;
+    }
+    .ab-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 4.4vw;
+      gap: 0.25vh;
+      font-size: clamp(10px, 0.68vw, 19px);
+    }
+    .ab-key {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.3vw;
+      padding: 0.25vh 0.55vw;
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .ab-key.ready {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .minimap-wrap {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.6vw;
+      padding: 0.5vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4vh;
+      pointer-events: auto;
+    }
+    #minimap-canvas {
+      width: 10.5vw;
+      height: 10.5vw;
+      min-width: 120px;
+      min-height: 120px;
+      border-radius: 0.35vw;
+      background: #090e1a;
+      display: block;
+    }
+
+    /* Crosshair & Interaction Prompt */
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 1.1vw;
+      height: 1.1vw;
+      min-width: 14px;
+      min-height: 14px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 15;
+      display: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+    }
+    #crosshair::before {
+      left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%);
+    }
+    #crosshair::after {
+      top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%);
+    }
+
+    #interact-prompt {
+      position: fixed;
+      top: 62%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: rgba(9, 13, 24, 0.92);
+      border: 1px solid var(--accent);
+      color: #fde68a;
+      padding: 0.8vh 1.4vw;
+      border-radius: 0.45vw;
+      font-family: var(--font-display);
+      font-size: clamp(12px, 0.95vw, 28px);
+      font-weight: 700;
+      display: none;
+      pointer-events: none;
+    }
+
+    #pointer-hint {
+      position: fixed;
+      top: 15vh;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: rgba(9, 13, 24, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #f8fafc;
+      padding: 0.7vh 1.3vw;
+      border-radius: 0.45vw;
+      font-size: clamp(11px, 0.82vw, 24px);
+      display: none;
+      pointer-events: none;
+    }
+
+    /* Toast / Notice Banner */
+    #toast-banner {
+      position: fixed;
+      top: 9vh;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 70;
+      background: #111827;
+      border: 1px solid var(--accent);
+      color: #ffffff;
+      padding: 1vh 1.8vw;
+      border-radius: 0.5vw;
+      font-family: var(--font-display);
+      font-size: clamp(13px, 1vw, 30px);
+      font-weight: 700;
+      display: none;
+    }
+
+    /* End Match / Mission Complete / Game Over Overlay */
+    .result-title {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 3.2vw, 96px);
+      font-weight: 700;
+      text-align: center;
+      line-height: 1;
+    }
+    .result-title.victory { color: #fbbf24; }
+    .result-title.defeat { color: #ef4444; }
+    .result-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1vh 1.2vw;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-hairline);
+      border-radius: 0.5vw;
+      padding: 1.4vh 1.2vw;
+      font-size: clamp(12px, 0.88vw, 26px);
+      font-variant-numeric: tabular-nums;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 1vw;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Global Top-Right Utilities -->
+  <div id="top-utility">
+    <div id="ping-chip" class="util-chip" style="display:none;">Ping: <span id="ping-val">--</span> ms</div>
+    <div class="util-chip">FPS: <span id="fps-val">60</span></div>
+    <button id="btn-quality-top" class="util-btn" title="Cycle Graphics Quality">Quality: Ultra (4K)</button>
+    <button id="btn-fullscreen" class="util-btn" title="Toggle Fullscreen">Fullscreen</button>
+  </div>
+
+  <div id="toast-banner"></div>
+  <div id="crosshair"></div>
+  <div id="interact-prompt"></div>
+  <div id="pointer-hint">Click the viewport to lock mouse camera · Press Esc or P to Pause</div>
+
+  <!-- 1. MAIN MENU -->
+  <div id="menu-screen" class="screen active">
+    <div class="menu-content">
+      <div class="menu-kicker">Metropolis Action · 4K WebGL</div>
+      <h1 class="menu-title">SUPERHERO CITY</h1>
+      <p class="menu-subtitle">
+        Choose from five iconic heroes, patrol the dynamic day-night metropolis, complete high-stakes missions, or battle online with WebRTC.
+      </p>
+
+      <div class="menu-buttons">
+        <button id="btn-mode-mission" class="btn-primary">
+          <span>MISSION MODE</span>
+          <span class="btn-meta">4 Story Missions · Unlockable</span>
+        </button>
+        <button id="btn-mode-freeroam" class="btn-secondary">
+          <span>FREE ROAM MODE</span>
+          <span class="btn-meta">Explore · Tokens · Street Crime</span>
+        </button>
+        <button id="btn-mode-connect" class="btn-secondary btn-connect">
+          <span>CONNECT (ULANISH)</span>
+          <span class="btn-meta">Online Co-op &amp; Versus PvP</span>
+        </button>
+      </div>
+
+      <div class="menu-footer-controls">
+        <div class="segmented-group" id="quality-selector">
+          <button class="seg-btn" data-q="low">Low (1080p)</button>
+          <button class="seg-btn" data-q="high">High (1440p)</button>
+          <button class="seg-btn active" data-q="ultra">Ultra (4K)</button>
+        </div>
+        <button id="btn-menu-controls" class="util-btn">Controls Guide</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. CHARACTER SELECTION SCREEN -->
+  <div id="char-screen" class="screen">
+    <div class="char-top">
+      <div>
+        <div class="menu-kicker" id="char-mode-label">Mission Mode · Select Hero</div>
+        <h2 class="char-header-title">CHOOSE YOUR HERO</h2>
+      </div>
+      <button id="btn-char-back" class="util-btn">Back to Menu</button>
+    </div>
+
+    <div class="char-middle">
+      <div class="hero-info-card">
+        <h3 class="hero-name" id="sel-hero-name">WEB SWINGER</h3>
+        <p class="hero-desc" id="sel-hero-desc"></p>
+
+        <div class="stat-row">
+          <div class="stat-label-row"><span>Speed</span><span id="stat-speed-val">95</span></div>
+          <div class="stat-track"><div class="stat-fill" id="stat-speed-bar" style="width:95%"></div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-label-row"><span>Power</span><span id="stat-power-val">75</span></div>
+          <div class="stat-track"><div class="stat-fill" id="stat-power-bar" style="width:75%"></div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-label-row"><span>Defense</span><span id="stat-def-val">70</span></div>
+          <div class="stat-track"><div class="stat-fill" id="stat-def-bar" style="width:70%"></div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-label-row"><span>Flying</span><span id="stat-fly-val">40</span></div>
+          <div class="stat-track"><div class="stat-fill" id="stat-fly-bar" style="width:40%"></div></div>
+        </div>
+
+        <div class="ability-list" id="sel-hero-abilities"></div>
+      </div>
+
+      <!-- Online Session Info during Character Select -->
+      <div class="char-online-card" id="char-online-card">
+        <div class="menu-kicker" style="color:var(--cyan);">Online Session</div>
+        <div style="font-size:clamp(12px,0.85vw,24px);">
+          You: <strong id="char-my-login">d2024</strong> · Friend: <strong id="char-friend-login">--</strong>
+        </div>
+        <div id="char-host-mode-wrap" style="display:flex; flex-direction:column; gap:0.6vh;">
+          <span style="font-size:clamp(11px,0.75vw,21px); color:var(--text-muted);">Match Mode (Host selects):</span>
+          <div class="segmented-group" id="char-online-mode-seg">
+            <button class="seg-btn active" data-omode="coop">CO-OP</button>
+            <button class="seg-btn" data-omode="versus">VERSUS (PvP)</button>
+          </div>
+        </div>
+        <div id="char-friend-status" class="status-line ok">Connected · Pick your hero and press START</div>
+      </div>
+    </div>
+
+    <div class="char-bottom">
+      <div class="hero-roster" id="hero-roster"></div>
+      <button id="btn-start-game" class="start-btn">START</button>
+    </div>
+  </div>
+
+  <!-- 3. IN-GAME HUD -->
+  <div id="hud-screen" class="screen">
+    <div class="hud-top">
+      <div class="hud-vitals">
+        <div class="hud-hero-header">
+          <span class="hud-hero-title" id="hud-hero-name">HERO</span>
+          <span class="hud-score">Score: <span id="hud-score-val">0</span></span>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-meta"><span>Health</span><span id="hud-hp-text">100 / 100</span></div>
+          <div class="bar-track"><div class="bar-hp" id="hud-hp-bar" style="width:100%"></div></div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-meta"><span>Energy</span><span id="hud-en-text">100 / 100</span></div>
+          <div class="bar-track"><div class="bar-energy" id="hud-en-bar" style="width:100%"></div></div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-meta"><span>Ultimate (Q)</span><span id="hud-ult-text">READY</span></div>
+          <div class="bar-track"><div class="bar-ult" id="hud-ult-bar" style="width:100%"></div></div>
+        </div>
+      </div>
+
+      <div class="hud-objective">
+        <div class="obj-title" id="hud-obj-title">FREE ROAM</div>
+        <div class="obj-text" id="hud-obj-text">Patrol the city, stop criminals, and collect tokens.</div>
+        <div class="obj-sub">
+          <span id="hud-timer-wrap">Time: <strong id="hud-timer-val">--</strong></span>
+          <span id="hud-extra-stat">Daylight · 12:00</span>
+        </div>
+        <div id="dir-arrow-wrap">
+          <span id="dir-arrow">▲</span>
+          <span id="dir-dist">Target: --m</span>
+        </div>
+      </div>
+
+      <div class="hud-right-col">
+        <div class="player-list-box" id="hud-player-list">
+          <div style="font-family:var(--font-display); font-weight:700; color:var(--cyan);">Online Players</div>
+          <div class="plist-row"><span id="plist-me-name">d2024</span><span id="plist-me-stat">100 HP · 0 KO</span></div>
+          <div class="plist-row"><span id="plist-fr-name">friend</span><span id="plist-fr-stat">100 HP · 0 KO</span></div>
+        </div>
+        <button id="btn-hud-pause" class="util-btn" style="pointer-events:auto;">Menu / Switch Hero (P)</button>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="controls-guide" id="hud-controls-guide">
+        <div class="controls-guide-head">
+          <span>Controls</span>
+          <button id="btn-hide-guide" class="close-btn" style="padding:0.15vh 0.5vw;">Hide</button>
+        </div>
+        <div>
+          <strong>WASD</strong> Move · <strong>Shift</strong> Sprint/Boost · <strong>Space</strong> Jump/Fly Up · <strong>C</strong> Fly Down<br />
+          <strong>LMB</strong> Primary Attack · <strong>RMB</strong> Special · <strong>Q</strong> Ultimate · <strong>E</strong> Interact · <strong>P/Esc</strong> Pause
+        </div>
+      </div>
+
+      <div class="ability-bar">
+        <div class="ab-slot"><span class="ab-key ready" id="ab-lmb">LMB</span><span id="ab-lmb-lbl">Primary</span></div>
+        <div class="ab-slot"><span class="ab-key ready" id="ab-rmb">RMB</span><span id="ab-rmb-lbl">Special</span></div>
+        <div class="ab-slot"><span class="ab-key ready" id="ab-q">Q</span><span>Ultimate</span></div>
+        <div class="ab-slot"><span class="ab-key ready">Space</span><span id="ab-space-lbl">Jump</span></div>
+        <div class="ab-slot"><span class="ab-key ready">E</span><span>Interact</span></div>
+      </div>
+
+      <div class="minimap-wrap">
+        <canvas id="minimap-canvas" width="220" height="220"></canvas>
+        <div style="font-size:clamp(10px,0.68vw,18px); color:var(--text-muted);" id="minimap-caption">City Radar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ONLINE CONNECT (ULANISH) -->
+  <div id="connect-modal" class="panel-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Online Multiplayer · Connect</h3>
+        <button id="btn-connect-close" class="close-btn">Close</button>
+      </div>
+
+      <div class="login-box">
+        <div>
+          <div style="font-size:clamp(11px,0.75vw,21px); color:var(--text-muted);">My Login</div>
+          <div class="login-value" id="my-login-display">d2024</div>
+        </div>
+        <button id="btn-copy-login" class="action-btn ghost">Copy Login</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:0.7vh;">
+        <label for="friend-login-input" style="font-size:clamp(12px,0.82vw,24px); font-weight:600;">Friend's Login</label>
+        <div class="input-row">
+          <input id="friend-login-input" class="text-input" type="text" placeholder="Enter friend's login (e.g. m1508)" value="m1508" />
+          <button id="btn-join-friend" class="action-btn">JOIN</button>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:1vw;">
+        <span style="font-size:clamp(12px,0.82vw,24px); color:var(--text-muted);">Online Mode (Host):</span>
+        <div class="segmented-group" id="connect-mode-seg">
+          <button class="seg-btn active" data-omode="coop">CO-OP</button>
+          <button class="seg-btn" data-omode="versus">VERSUS (PvP)</button>
+        </div>
+      </div>
+
+      <div id="connect-status" class="status-line wait">Waiting for friend...</div>
+    </div>
+  </div>
+
+  <!-- MODAL: MISSION PICKER -->
+  <div id="mission-modal" class="panel-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Select Mission</h3>
+        <button id="btn-mission-close" class="close-btn">Close</button>
+      </div>
+      <div id="mission-list" style="display:flex; flex-direction:column; gap:0.9vh;"></div>
+      <div class="modal-actions">
+        <button id="btn-mission-proceed" class="action-btn amber">Choose Hero</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PAUSE / IN-GAME MENU -->
+  <div id="pause-modal" class="panel-modal">
+    <div class="modal-card" style="width:min(32vw, 90vw);">
+      <div class="modal-header">
+        <h3 class="modal-title">Game Paused</h3>
+        <button id="btn-pause-resume" class="close-btn">Resume</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:1vh;">
+        <button id="btn-pause-switch-hero" class="action-btn amber">Switch Hero</button>
+        <button id="btn-pause-controls" class="action-btn ghost">Show Controls Guide</button>
+        <button id="btn-pause-mainmenu" class="action-btn ghost">Return to Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONTROLS GUIDE -->
+  <div id="controls-modal" class="panel-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Controls Guide</h3>
+        <button id="btn-controls-close" class="close-btn">Close</button>
+      </div>
+      <div style="font-size:clamp(12px,0.88vw,25px); line-height:1.7; color:#cbd5e1;">
+        <p><strong>Movement:</strong> W, A, S, D to move · Shift to Sprint / Jet Boost</p>
+        <p><strong>Jump &amp; Flight:</strong> Space to Jump (Double Jump for agile heroes; Hold Space to Fly Up for Iron Inventor &amp; Thunder Warrior) · C to Fly Down</p>
+        <p><strong>Camera:</strong> Move Mouse to look around (click game screen to lock cursor)</p>
+        <p><strong>Combat:</strong> Left Click for Primary Attack · Right Click for Special Ability · Q for Ultimate Move</p>
+        <p><strong>Interaction:</strong> E to Rescue Citizens or Interact with Objectives</p>
+        <p><strong>System:</strong> P or Esc for Pause Menu &amp; Hero Switch</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MATCH / MISSION END SCREEN -->
+  <div id="result-modal" class="panel-modal">
+    <div class="modal-card">
+      <div class="result-title victory" id="result-title">VICTORY</div>
+      <div id="result-subtitle" style="text-align:center; font-size:clamp(13px,0.95vw,28px); color:var(--text-muted);">
+        Mission Accomplished
+      </div>
+      <div class="result-stats" id="result-stats"></div>
+      <div class="modal-actions" id="result-actions"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // =========================================================================
+    // SUPERHERO CITY 4K - Single-File Three.js + PeerJS 3D Action Game
+    // =========================================================================
+    import * as THREE from 'https://esm.sh/three@0.170.0';
+    import { RoomEnvironment } from 'https://esm.sh/three@0.170.0/examples/jsm/environments/RoomEnvironment.js';
+    import { EffectComposer } from 'https://esm.sh/three@0.170.0/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'https://esm.sh/three@0.170.0/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'https://esm.sh/three@0.170.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'https://esm.sh/three@0.170.0/examples/jsm/postprocessing/OutputPass.js';
+
+    // Fixed player login for Online Multiplayer PeerJS registration
+    const MY_LOGIN = "d2024";
+    const PEER_PREFIX = "superhero-city-";
+
+    // =========================================================================
+    // 1. SOFTWARE WEBGL PROBE & RENDERER SETUP (4K / ACESFilmic / Bloom)
+    // =========================================================================
+    const isSoftwareGl = (() => {
+      try {
+        const probe = document.createElement('canvas');
+        const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+        if (!gl) return true;
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
+        const gpu = String(gl.getParameter(param) || '');
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+      } catch {
+        return true;
+      }
+    })();
+
+    const container = document.getElementById('game-container');
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isSoftwareGl,
+      powerPreference: 'high-performance',
+    });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = !isSoftwareGl;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // WebGL context loss safety
+    renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      showToast('WebGL context paused — restoring...');
+    });
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x6fa8dc);
+    scene.fog = new THREE.FogExp2(0x6fa8dc, 0.0026);
+
+    // Procedural Studio Environment Map for metallic hero armor & glass
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+
+    const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.25, 900);
+
+    // Post-processing Composer with UnrealBloomPass + OutputPass
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.42, // strength
+      0.35, // radius
+      0.86  // threshold
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+
+    // Graphics Quality Management: Low (1080p), High (1440p), Ultra (4K)
+    let graphicsQuality = 'ultra';
+    function applyGraphicsSettings() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const baseRatio = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2);
+
+      let maxTargetH = 2160;
+      if (graphicsQuality === 'low') maxTargetH = 1080;
+      else if (graphicsQuality === 'high') maxTargetH = 1440;
+
+      // Keep renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) on Ultra,
+      // and scale down only if display * ratio exceeds the selected quality cap.
+      let effectiveRatio = baseRatio;
+      if (h * effectiveRatio > maxTargetH) {
+        effectiveRatio = Math.max(0.5, maxTargetH / h);
+      }
+
+      renderer.setPixelRatio(effectiveRatio);
+      renderer.setSize(w, h);
+      composer.setPixelRatio(effectiveRatio);
+      composer.setSize(w, h);
+      bloomPass.resolution.set(w, h);
+      bloomPass.enabled = !isSoftwareGl && graphicsQuality !== 'low';
+
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+
+      if (sunLight && sunLight.shadow) {
+        const sSize = graphicsQuality === 'low' ? 1024 : 2048;
+        if (sunLight.shadow.mapSize.width !== sSize) {
+          sunLight.shadow.mapSize.set(sSize, sSize);
+          if (sunLight.shadow.map) {
+            sunLight.shadow.map.dispose();
+            sunLight.shadow.map = null;
+          }
+        }
+      }
+
+      const labels = { low: 'Low (1080p)', high: 'High (1440p)', ultra: 'Ultra (4K)' };
+      document.getElementById('btn-quality-top').textContent = `Quality: ${labels[graphicsQuality]}`;
+      document.querySelectorAll('#quality-selector .seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.q === graphicsQuality);
+      });
+    }
+    window.addEventListener('resize', applyGraphicsSettings);
+
+    // =========================================================================
+    // 2. PROCEDURAL WEB AUDIO ENGINE (Zero external sound files)
+    // =========================================================================
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+      }
+      ensure() {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) this.ctx = new AC();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+      playTone(freq, endFreq, dur, type = 'sine', vol = 0.14) {
+        this.ensure();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + dur);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur);
+      }
+      playNoise(dur = 0.22, vol = 0.18, filterFreq = 800) {
+        this.ensure();
+        if (!this.ctx) return;
+        const len = Math.floor(this.ctx.sampleRate * dur);
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.4));
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = filterFreq;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        src.start();
+      }
+      punch() { this.playTone(150, 42, 0.14, 'triangle', 0.22); this.playNoise(0.1, 0.16, 650); }
+      smash() { this.playTone(95, 25, 0.35, 'sawtooth', 0.28); this.playNoise(0.32, 0.28, 450); }
+      web() { this.playTone(580, 190, 0.14, 'sine', 0.14); this.playNoise(0.12, 0.1, 2400); }
+      beam() { this.playTone(980, 260, 0.2, 'sawtooth', 0.14); }
+      missile() { this.playTone(300, 90, 0.25, 'square', 0.1); this.playNoise(0.24, 0.14, 1200); }
+      explode() { this.playTone(110, 24, 0.45, 'sawtooth', 0.26); this.playNoise(0.45, 0.3, 550); }
+      shield() { this.playTone(720, 440, 0.16, 'triangle', 0.16); this.playTone(1140, 880, 0.14, 'sine', 0.1); }
+      thunder() { this.playTone(180, 32, 0.55, 'sawtooth', 0.26); this.playNoise(0.55, 0.32, 1600); }
+      jump() { this.playTone(210, 460, 0.16, 'sine', 0.12); }
+      token() { this.playTone(580, 1160, 0.18, 'triangle', 0.14); }
+      victory() {
+        [523, 659, 784, 1046].forEach((f, idx) => {
+          setTimeout(() => this.playTone(f, f * 1.02, 0.24, 'triangle', 0.14), idx * 90);
+        });
+      }
+    }
+    const audio = new AudioEngine();
+
+    // =========================================================================
+    // 3. PROCEDURAL TEXTURES (CanvasTexture - Zero external files)
+    // =========================================================================
+    function createRoadTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#262b36';
+      ctx.fillRect(0, 0, 512, 512);
+      // Asphalt grain
+      for (let i = 0; i < 6000; i++) {
+        const g = 32 + Math.floor(Math.random() * 24);
+        ctx.fillStyle = `rgb(${g},${g+3},${g+7})`;
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+      }
+      // Dashed center yellow lines & lane borders
+      ctx.fillStyle = '#eab308';
+      for (let y = 16; y < 512; y += 64) {
+        ctx.fillRect(252, y, 8, 34);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(22, 0, 5, 512);
+      ctx.fillRect(485, 0, 5, 512);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return tex;
+    }
+
+    function createSidewalkTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 3;
+      for (let x = 0; x <= 256; x += 64) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, x); ctx.lineTo(256, x); ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return tex;
+    }
+
+    function createBuildingTextures(baseHex, litColorHex) {
+      const colCanvas = document.createElement('canvas');
+      colCanvas.width = 256; colCanvas.height = 512;
+      const cctx = colCanvas.getContext('2d');
+
+      const emCanvas = document.createElement('canvas');
+      emCanvas.width = 256; emCanvas.height = 512;
+      const ectx = emCanvas.getContext('2d');
+
+      cctx.fillStyle = baseHex;
+      cctx.fillRect(0, 0, 256, 512);
+      ectx.fillStyle = '#000000';
+      ectx.fillRect(0, 0, 256, 512);
+
+      const cols = 8, rows = 16;
+      const cw = 256 / cols, rh = 512 / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let col = 0; col < cols; col++) {
+          const lit = Math.random() > 0.35;
+          cctx.fillStyle = lit ? '#7dd3fc' : '#1e293b';
+          cctx.fillRect(col * cw + 5, r * rh + 6, cw - 10, rh - 12);
+          if (lit) {
+            ectx.fillStyle = Math.random() > 0.25 ? litColorHex : '#fde68a';
+            ectx.fillRect(col * cw + 5, r * rh + 6, cw - 10, rh - 12);
+          }
+        }
+      }
+      const map = new THREE.CanvasTexture(colCanvas);
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+      const emissiveMap = new THREE.CanvasTexture(emCanvas);
+      emissiveMap.wrapS = emissiveMap.wrapT = THREE.RepeatWrapping;
+      emissiveMap.colorSpace = THREE.SRGBColorSpace;
+      return { map, emissiveMap };
+    }
+
+    function createCrateTexture() {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#9a6b3b';
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.strokeStyle = '#5c3c1e';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, 118, 118);
+      ctx.beginPath();
+      ctx.moveTo(8, 8); ctx.lineTo(120, 120);
+      ctx.moveTo(120, 8); ctx.lineTo(8, 120);
+      ctx.stroke();
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function createBrickTexture() {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#994735';
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.fillStyle = '#cbd5e1';
+      for (let y = 0; y < 128; y += 16) {
+        ctx.fillRect(0, y, 128, 2);
+        const off = (y / 16) % 2 === 0 ? 0 : 16;
+        for (let x = off; x < 128; x += 32) {
+          ctx.fillRect(x, y, 2, 16);
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function createContactShadowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 128;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
+      grad.addColorStop(0, 'rgba(0,0,0,0.65)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 128);
+      const tex = new THREE.CanvasTexture(c);
+      return tex;
+    }
+
+    const TEX = {
+      road: createRoadTexture(),
+      sidewalk: createSidewalkTexture(),
+      crate: createCrateTexture(),
+      brick: createBrickTexture(),
+      shadow: createContactShadowTexture(),
+      bldgs: [
+        createBuildingTextures('#334155', '#fef08a'),
+        createBuildingTextures('#475569', '#bae6fd'),
+        createBuildingTextures('#3f3f46', '#fde047'),
+        createBuildingTextures('#1e3a5f', '#7dd3fc'),
+      ],
+    };
+
+    // =========================================================================
+    // 4. HERO DEFINITIONS & COMPOSITE 3D MODELS (3–12+ part articulated groups)
+    // =========================================================================
+    const HEROES = [
+      {
+        id: 'webswinger',
+        name: 'WEB SWINGER',
+        role: 'Agile Acrobat',
+        color: '#ef4444',
+        accent: '#2563eb',
+        desc: 'Red-and-blue urban acrobat who shoots rapid webs, swings across skyscrapers, climbs walls, and strikes with blazing agility.',
+        stats: { speed: 95, power: 72, defense: 68, flying: 45 },
+        canFly: false,
+        doubleJump: true,
+        wallClimb: true,
+        moveSpeed: 22,
+        sprintSpeed: 34,
+        jumpForce: 19,
+        maxHp: 130,
+        lmbLabel: 'Web Shot',
+        rmbLabel: 'Web Swing',
+        abilitiesText: '<strong>LMB:</strong> Rapid Web Shot &amp; Kick · <strong>RMB:</strong> Web-Swing / Zip · <strong>Space x2:</strong> Acrobatic Double Jump · <strong>Q:</strong> Web Storm Burst',
+      },
+      {
+        id: 'ironinventor',
+        name: 'IRON INVENTOR',
+        role: 'Armored Flyer',
+        color: '#dc2626',
+        accent: '#f59e0b',
+        desc: 'Crimson-and-gold armored genius equipped with sustained flight thrusters, palm repulsor lasers, and homing micro-missiles.',
+        stats: { speed: 86, power: 88, defense: 85, flying: 100 },
+        canFly: true,
+        doubleJump: false,
+        wallClimb: false,
+        moveSpeed: 20,
+        sprintSpeed: 38,
+        jumpForce: 16,
+        maxHp: 160,
+        lmbLabel: 'Repulsor',
+        rmbLabel: 'Missiles',
+        abilitiesText: '<strong>LMB:</strong> Palm Repulsor Beam · <strong>RMB:</strong> Homing Missiles · <strong>Space/C:</strong> Full Flight · <strong>Q:</strong> Unibeam Overdrive',
+      },
+      {
+        id: 'supersoldier',
+        name: 'SUPER SOLDIER',
+        role: 'Tactical Brawler',
+        color: '#2563eb',
+        accent: '#e2e8f0',
+        desc: 'Peak-human sentinel wielding an indestructible star-emblazoned round shield that ricochets between foes and returns.',
+        stats: { speed: 82, power: 84, defense: 90, flying: 20 },
+        canFly: false,
+        doubleJump: true,
+        wallClimb: false,
+        moveSpeed: 20,
+        sprintSpeed: 30,
+        jumpForce: 18,
+        maxHp: 175,
+        lmbLabel: 'Shield Strike',
+        rmbLabel: 'Bounce Throw',
+        abilitiesText: '<strong>LMB:</strong> Heavy Shield Melee · <strong>RMB:</strong> Ricochet Shield Throw · <strong>Space x2:</strong> Super Leap · <strong>Q:</strong> Kinetic Slam',
+      },
+      {
+        id: 'thunderwarrior',
+        name: 'THUNDER WARRIOR',
+        role: 'Storm Demigod',
+        color: '#64748b',
+        accent: '#38bdf8',
+        desc: 'Caped storm champion wielding a forged war-hammer, spinning it to take flight and summoning sky-shattering lightning bolts.',
+        stats: { speed: 80, power: 96, defense: 92, flying: 92 },
+        canFly: true,
+        doubleJump: false,
+        wallClimb: false,
+        moveSpeed: 19,
+        sprintSpeed: 35,
+        jumpForce: 17,
+        maxHp: 190,
+        lmbLabel: 'Hammer Cleave',
+        rmbLabel: 'Lightning',
+        abilitiesText: '<strong>LMB:</strong> Thunder Hammer Smash · <strong>RMB:</strong> Sky Lightning Call · <strong>Space/C:</strong> Hammer-Spin Flight · <strong>Q:</strong> Bifrost Tempest',
+      },
+      {
+        id: 'greengiant',
+        name: 'GREEN GIANT',
+        role: 'Colossal Titan',
+        color: '#16a34a',
+        accent: '#7e22ce',
+        desc: 'Towering emerald juggernaut who shatters vehicles and walls in single blows and leaps over entire city avenues.',
+        stats: { speed: 62, power: 100, defense: 100, flying: 30 },
+        canFly: false,
+        doubleJump: false,
+        wallClimb: false,
+        moveSpeed: 16,
+        sprintSpeed: 25,
+        jumpForce: 30,
+        maxHp: 260,
+        lmbLabel: 'Titan Smash',
+        rmbLabel: 'Thunderclap',
+        abilitiesText: '<strong>LMB:</strong> Titanic Smash · <strong>RMB:</strong> Shockwave Thunderclap · <strong>Space:</strong> Colossal Super Leap · <strong>Q:</strong> Gamma Quake',
+      },
+    ];
+
+    // Builds an articulated 10+ part composite 3D hero mesh pivoted at bottom-center (y = 0)
+    function buildHeroMesh(heroId) {
+      const root = new THREE.Group();
+      const parts = {};
+      const isGiant = heroId === 'greengiant';
+      const scale = isGiant ? 1.42 : 1.0;
+
+      // Material palettes per hero with varied roughness & metalness
+      let matPrimary, matSecondary, matTrim, matSkin, matGlow;
+      if (heroId === 'webswinger') {
+        matPrimary = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.45, metalness: 0.1 });
+        matSecondary = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.55, metalness: 0.08 });
+        matTrim = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.2 });
+        matGlow = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.2 });
+      } else if (heroId === 'ironinventor') {
+        matPrimary = new THREE.MeshPhysicalMaterial({ color: 0xb91c1c, roughness: 0.2, metalness: 0.88, clearcoat: 0.8 });
+        matSecondary = new THREE.MeshPhysicalMaterial({ color: 0xf59e0b, roughness: 0.18, metalness: 0.94, clearcoat: 0.6 });
+        matTrim = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.7 });
+        matGlow = new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x22d3ee, emissiveIntensity: 2.2, roughness: 0.1 });
+      } else if (heroId === 'supersoldier') {
+        matPrimary = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.52, metalness: 0.15 });
+        matSecondary = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4, metalness: 0.35 });
+        matTrim = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.45, metalness: 0.2 });
+        matSkin = new THREE.MeshStandardMaterial({ color: 0xf1c27d, roughness: 0.65, metalness: 0.02 });
+        matGlow = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.8 });
+      } else if (heroId === 'thunderwarrior') {
+        matPrimary = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.55 });
+        matSecondary = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.22, metalness: 0.85 });
+        matTrim = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.72, metalness: 0.05 });
+        matSkin = new THREE.MeshStandardMaterial({ color: 0xf1c27d, roughness: 0.62, metalness: 0.02 });
+        matGlow = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, emissive: 0x38bdf8, emissiveIntensity: 2.0, roughness: 0.15 });
+      } else {
+        // Green Giant
+        matPrimary = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.58, metalness: 0.05 });
+        matSecondary = new THREE.MeshStandardMaterial({ color: 0x6b21a8, roughness: 0.78, metalness: 0.02 });
+        matTrim = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.65, metalness: 0.05 });
+        matGlow = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 0.6, roughness: 0.4 });
+      }
+
+      const bodyGroup = new THREE.Group();
+      bodyGroup.scale.setScalar(scale);
+      root.add(bodyGroup);
+      parts.bodyGroup = bodyGroup;
+
+      // Ground contact shadow plane
+      const shadowGeo = new THREE.PlaneGeometry(2.1 * scale, 2.1 * scale);
+      const shadowMat = new THREE.MeshBasicMaterial({ map: TEX.shadow, transparent: true, depthWrite: false, opacity: 0.7 });
+      const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.position.y = 0.03;
+      root.add(shadowPlane);
+      parts.contactShadow = shadowPlane;
+
+      // Pelvis / Waist (pivot y = 0.92)
+      const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.26, 0.38), isGiant ? matSecondary : matSecondary);
+      pelvis.position.y = 0.95;
+      pelvis.castShadow = true;
+      bodyGroup.add(pelvis);
+
+      // Torso (broad chest)
+      const torsoW = isGiant ? 0.94 : 0.72;
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(torsoW, 0.76, 0.44), matPrimary);
+      torso.position.y = 1.44;
+      torso.castShadow = true;
+      bodyGroup.add(torso);
+      parts.torso = torso;
+
+      // Belt / Waist Trim
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(torsoW * 0.9, 0.11, 0.46), matTrim);
+      belt.position.y = 1.07;
+      bodyGroup.add(belt);
+
+      // Chest Accent (Arc Reactor, Star, Spider Crest, Armor Plates)
+      if (heroId === 'ironinventor') {
+        const reactor = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 16), matGlow);
+        reactor.rotation.x = Math.PI / 2;
+        reactor.position.set(0, 1.54, 0.22);
+        bodyGroup.add(reactor);
+        // Shoulder pauldrons
+        [-0.48, 0.48].forEach(sx => {
+          const p = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), matSecondary);
+          p.position.set(sx, 1.76, 0);
+          p.castShadow = true;
+          bodyGroup.add(p);
+        });
+      } else if (heroId === 'supersoldier') {
+        const star = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.04, 5), matSecondary);
+        star.rotation.x = Math.PI / 2;
+        star.position.set(0, 1.54, 0.22);
+        bodyGroup.add(star);
+      } else if (heroId === 'webswinger') {
+        const crest = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), matTrim);
+        crest.scale.set(1.2, 1.6, 0.3);
+        crest.position.set(0, 1.54, 0.22);
+        bodyGroup.add(crest);
+      } else if (heroId === 'thunderwarrior') {
+        // Armor discs + flowing crimson cape
+        [-0.17, 0.17].forEach(dx => {
+          [1.62, 1.42].forEach(dy => {
+            const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 12), matSecondary);
+            disc.rotation.x = Math.PI / 2;
+            disc.position.set(dx, dy, 0.23);
+            bodyGroup.add(disc);
+          });
+        });
+        const capePivot = new THREE.Group();
+        capePivot.position.set(0, 1.78, -0.22);
+        const cape = new THREE.Mesh(new THREE.BoxGeometry(0.84, 1.32, 0.05), matTrim);
+        cape.position.y = -0.66;
+        cape.castShadow = true;
+        capePivot.add(cape);
+        bodyGroup.add(capePivot);
+        parts.cape = capePivot;
+      }
+
+      // Head Group
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 1.98, 0);
+      bodyGroup.add(headGroup);
+      parts.head = headGroup;
+
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(isGiant ? 0.26 : 0.22, 16, 14),
+        (heroId === 'supersoldier' || heroId === 'thunderwarrior') ? matPrimary : matPrimary
+      );
+      head.scale.set(0.95, 1.08, 0.98);
+      head.castShadow = true;
+      headGroup.add(head);
+
+      // Visor / Eyes / Helm Wings / Hair
+      if (heroId === 'webswinger') {
+        [-0.08, 0.08].forEach((ex, i) => {
+          const eye = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.05), matGlow);
+          eye.position.set(ex, 0.03, 0.19);
+          eye.rotation.z = i === 0 ? -0.25 : 0.25;
+          headGroup.add(eye);
+        });
+      } else if (heroId === 'ironinventor') {
+        const faceplate = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.14), matSecondary);
+        faceplate.position.set(0, -0.01, 0.14);
+        headGroup.add(faceplate);
+        [-0.07, 0.07].forEach(ex => {
+          const eye = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.028, 0.04), matGlow);
+          eye.position.set(ex, 0.04, 0.21);
+          headGroup.add(eye);
+        });
+      } else if (heroId === 'supersoldier') {
+        const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), matSkin);
+        jaw.position.set(0, -0.06, 0.06);
+        headGroup.add(jaw);
+        const crestA = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), matSecondary);
+        crestA.position.set(0, 0.12, 0.19);
+        headGroup.add(crestA);
+      } else if (heroId === 'thunderwarrior') {
+        const face = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 12), matSkin);
+        headGroup.add(face);
+        const helm = new THREE.Mesh(new THREE.SphereGeometry(0.23, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), matSecondary);
+        headGroup.add(helm);
+        [-0.24, 0.24].forEach((wx, i) => {
+          const wing = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.12), matSecondary);
+          wing.position.set(wx, 0.12, -0.02);
+          wing.rotation.z = i === 0 ? 0.35 : -0.35;
+          headGroup.add(wing);
+        });
+      } else {
+        const brow = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.07, 0.12), matTrim);
+        brow.position.set(0, 0.06, 0.18);
+        headGroup.add(brow);
+        const hair = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.38), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }));
+        hair.position.set(0, 0.19, -0.02);
+        headGroup.add(hair);
+      }
+
+      // Arms (Left & Right Pivots at shoulder)
+      const armOffset = isGiant ? 0.62 : 0.48;
+      const armR = isGiant ? 0.16 : 0.11;
+      function makeArm(side) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * armOffset, 1.72, 0);
+        const upper = new THREE.Mesh(new THREE.CylinderGeometry(armR, armR * 0.88, 0.42, 10), matPrimary);
+        upper.position.y = -0.2;
+        upper.castShadow = true;
+        pivot.add(upper);
+
+        const fore = new THREE.Mesh(new THREE.CylinderGeometry(armR * 0.92, armR * 0.78, 0.4, 10), heroId === 'webswinger' ? matPrimary : matSecondary);
+        fore.position.y = -0.58;
+        fore.castShadow = true;
+        pivot.add(fore);
+
+        const fist = new THREE.Mesh(new THREE.SphereGeometry(armR * 1.15, 10, 10), heroId === 'ironinventor' ? matSecondary : matPrimary);
+        fist.position.y = -0.82;
+        pivot.add(fist);
+
+        if (heroId === 'ironinventor') {
+          const palm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), matGlow);
+          palm.position.y = -0.86;
+          pivot.add(palm);
+        }
+        bodyGroup.add(pivot);
+        return pivot;
+      }
+      parts.leftArm = makeArm(-1);
+      parts.rightArm = makeArm(1);
+
+      // Hero Weapons attached to arms
+      if (heroId === 'supersoldier') {
+        const shieldGroup = new THREE.Group();
+        const sOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 24), matTrim);
+        const sMid = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.055, 24), matSecondary);
+        const sCore = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.06, 20), matPrimary);
+        const sStar = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.065, 5), matSecondary);
+        shieldGroup.add(sOuter, sMid, sCore, sStar);
+        shieldGroup.rotation.z = Math.PI / 2;
+        shieldGroup.position.set(-0.15, -0.55, 0.08);
+        parts.leftArm.add(shieldGroup);
+        parts.shield = shieldGroup;
+      }
+
+      if (heroId === 'thunderwarrior') {
+        const hammer = new THREE.Group();
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.62, 10), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 }));
+        handle.rotation.x = Math.PI / 2;
+        handle.position.z = 0.25;
+        const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.42), matSecondary);
+        headBox.position.z = 0.56;
+        const runeGlow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.14), matGlow);
+        runeGlow.position.z = 0.56;
+        hammer.add(handle, headBox, runeGlow);
+        hammer.position.set(0, -0.82, 0.05);
+        parts.rightArm.add(hammer);
+        parts.hammer = hammer;
+      }
+
+      // Legs (Left & Right Pivots at hip)
+      function makeLeg(side) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * (isGiant ? 0.24 : 0.18), 0.88, 0);
+        const legR = isGiant ? 0.18 : 0.13;
+        const thigh = new THREE.Mesh(new THREE.CylinderGeometry(legR, legR * 0.86, 0.45, 10), isGiant ? matSecondary : matSecondary);
+        thigh.position.y = -0.22;
+        thigh.castShadow = true;
+        pivot.add(thigh);
+
+        const shin = new THREE.Mesh(new THREE.CylinderGeometry(legR * 0.88, legR * 0.78, 0.44, 10), isGiant ? matPrimary : matPrimary);
+        shin.position.y = -0.64;
+        shin.castShadow = true;
+        pivot.add(shin);
+
+        const boot = new THREE.Mesh(new THREE.BoxGeometry(legR * 1.9, 0.14, legR * 2.7), isGiant ? matPrimary : matTrim);
+        boot.position.set(0, -0.83, 0.06);
+        boot.castShadow = true;
+        pivot.add(boot);
+
+        if (heroId === 'ironinventor') {
+          const thruster = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.06, 10), matGlow);
+          thruster.position.set(0, -0.9, 0.02);
+          pivot.add(thruster);
+        }
+
+        bodyGroup.add(pivot);
+        return pivot;
+      }
+      parts.leftLeg = makeLeg(-1);
+      parts.rightLeg = makeLeg(1);
+
+      root.userData.parts = parts;
+      root.userData.heroId = heroId;
+      return root;
+    }
+
+    // Animates any articulated hero mesh based on current movement & combat state
+    function animateHeroMesh(mesh, state, dt, time) {
+      const p = mesh.userData.parts;
+      if (!p) return;
+
+      const speed = Math.hypot(state.vx || 0, state.vz || 0);
+      const isMoving = speed > 0.6;
+      const isFlying = !!state.flying;
+      const isSwinging = !!state.swinging;
+      const atkTimer = state.attackAnim || 0;
+
+      // Grounded contact shadow fade with height
+      if (p.contactShadow) {
+        const h = Math.max(0, mesh.position.y);
+        p.contactShadow.position.y = -h + 0.04;
+        const s = Math.max(0.3, 1 - h * 0.03);
+        p.contactShadow.scale.set(s, s, 1);
+        p.contactShadow.material.opacity = Math.max(0.1, 0.65 - h * 0.025);
+      }
+
+      let targetTilt = 0;
+      let laX = 0, raX = 0, llX = 0, rlX = 0;
+      let laZ = -0.1, raZ = 0.1;
+
+      if (isSwinging) {
+        targetTilt = 0.35;
+        raX = -2.4;
+        laX = 0.4;
+        llX = 0.35;
+        rlX = -0.45;
+      } else if (isFlying) {
+        targetTilt = Math.min(0.85, speed * 0.024);
+        llX = 0.18 + Math.sin(time * 8) * 0.05;
+        rlX = 0.22 - Math.sin(time * 8) * 0.05;
+        if (mesh.userData.heroId === 'thunderwarrior') {
+          raX = -2.8;
+          if (p.hammer) p.hammer.rotation.y += dt * 26;
+        } else {
+          laX = 0.3; raX = 0.3;
+          laZ = -0.25; raZ = 0.25;
+        }
+      } else if (!state.grounded && (state.vy || 0) !== 0) {
+        laX = -0.8; raX = -0.4;
+        llX = 0.45; rlX = -0.35;
+      } else if (isMoving) {
+        const freq = speed > 24 ? 14 : 9.5;
+        const amp = Math.min(0.95, speed * 0.035);
+        llX = Math.sin(time * freq) * amp;
+        rlX = -Math.sin(time * freq) * amp;
+        laX = -Math.sin(time * freq) * amp * 0.85;
+        raX = Math.sin(time * freq) * amp * 0.85;
+        targetTilt = speed > 24 ? 0.18 : 0.08;
+      } else {
+        // Subtle idle breathing
+        laZ = -0.08 - Math.sin(time * 2.2) * 0.03;
+        raZ = 0.08 + Math.sin(time * 2.2) * 0.03;
+        if (p.hammer) p.hammer.rotation.y = THREE.MathUtils.damp(p.hammer.rotation.y, 0, 8, dt);
+      }
+
+      // Attack Animation Override
+      if (atkTimer > 0) {
+        const swing = Math.sin(atkTimer * Math.PI * 3);
+        if (state.attackType === 'beam' || state.attackType === 'web') {
+          raX = -1.55;
+        } else if (state.attackType === 'ultimate') {
+          raX = -2.6; laX = -2.6;
+          laZ = -0.5; raZ = 0.5;
+        } else {
+          raX = -1.8 * Math.abs(swing) - 0.5;
+          laX = -0.9 * Math.abs(swing);
+        }
+      }
+
+      if (p.shield) {
+        p.shield.visible = !state.shieldOut;
+      }
+      if (p.cape) {
+        p.cape.rotation.x = THREE.MathUtils.damp(
+          p.cape.rotation.x,
+          0.12 + Math.min(0.9, speed * 0.03) + Math.sin(time * 7) * 0.06,
+          8,
+          dt
+        );
+      }
+
+      p.bodyGroup.rotation.x = THREE.MathUtils.damp(p.bodyGroup.rotation.x, targetTilt, 10, dt);
+      p.leftArm.rotation.x = THREE.MathUtils.damp(p.leftArm.rotation.x, laX, 14, dt);
+      p.rightArm.rotation.x = THREE.MathUtils.damp(p.rightArm.rotation.x, raX, 14, dt);
+      p.leftArm.rotation.z = THREE.MathUtils.damp(p.leftArm.rotation.z, laZ, 12, dt);
+      p.rightArm.rotation.z = THREE.MathUtils.damp(p.rightArm.rotation.z, raZ, 12, dt);
+      p.leftLeg.rotation.x = THREE.MathUtils.damp(p.leftLeg.rotation.x, llX, 14, dt);
+      p.rightLeg.rotation.x = THREE.MathUtils.damp(p.rightLeg.rotation.x, rlX, 14, dt);
+    }
+
+    // =========================================================================
+    // 5. LIGHTING & DAY/NIGHT CYCLE
+    // =========================================================================
+    const hemiLight = new THREE.HemisphereLight(0xa5d8ff, 0x334155, 0.75);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.8);
+    sunLight.position.set(110, 180, 90);
+    sunLight.castShadow = !isSoftwareGl;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    const dShadow = 140;
+    sunLight.shadow.camera.left = -dShadow;
+    sunLight.shadow.camera.right = dShadow;
+    sunLight.shadow.camera.top = dShadow;
+    sunLight.shadow.camera.bottom = -dShadow;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 420;
+    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.normalBias = 0.03;
+    scene.add(sunLight);
+    scene.add(sunLight.target);
+
+    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
+    rimLight.position.set(-90, 80, -110);
+    scene.add(rimLight);
+
+    let dayTime = 0.35; // 0..1 (0.25 sunrise, 0.5 noon, 0.75 sunset, 0.0/1.0 midnight)
+    const _skyDay = new THREE.Color(0x6fa8dc);
+    const _skySunset = new THREE.Color(0xe07a5f);
+    const _skyNight = new THREE.Color(0x090f22);
+    const _skyCur = new THREE.Color();
+
+    function updateDayNight(dt, focusPos) {
+      dayTime = (dayTime + dt * 0.0045) % 1; // ~220s full cycle
+      const sunAngle = dayTime * Math.PI * 2 - Math.PI / 2;
+      const elevation = Math.sin(sunAngle); // -1..1
+      const orbitDist = 180;
+
+      sunLight.position.set(
+        focusPos.x + Math.cos(sunAngle) * orbitDist,
+        Math.max(25, elevation * orbitDist),
+        focusPos.z + 75
+      );
+      sunLight.target.position.set(focusPos.x, 0, focusPos.z);
+
+      if (elevation > 0.2) {
+        const t = Math.min(1, (elevation - 0.2) / 0.5);
+        _skyCur.copy(_skySunset).lerp(_skyDay, t);
+        sunLight.intensity = 1.2 + t * 0.8;
+        sunLight.color.setHex(0xfff5e0);
+        hemiLight.intensity = 0.65 + t * 0.2;
+      } else if (elevation > -0.15) {
+        const t = (elevation + 0.15) / 0.35;
+        _skyCur.copy(_skyNight).lerp(_skySunset, t);
+        sunLight.intensity = 0.35 + t * 0.85;
+        sunLight.color.setHex(0xff9e6d);
+        hemiLight.intensity = 0.35 + t * 0.3;
+      } else {
+        _skyCur.copy(_skyNight);
+        sunLight.intensity = 0.32;
+        sunLight.color.setHex(0x7c9cff);
+        hemiLight.intensity = 0.35;
+      }
+
+      scene.background.copy(_skyCur);
+      scene.fog.color.copy(_skyCur);
+
+      // Nighttime building window glow & streetlamps
+      const nightFactor = THREE.MathUtils.clamp(1 - (elevation + 0.1) * 2.5, 0.15, 1.25);
+      buildingMaterials.forEach(m => {
+        m.emissiveIntensity = nightFactor;
+      });
+
+      const hours = Math.floor(dayTime * 24);
+      const mins = Math.floor((dayTime * 24 - hours) * 60);
+      const clockStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+      const phase = elevation > 0.15 ? 'Daylight' : (elevation > -0.15 ? 'Twilight' : 'Night');
+      const extraEl = document.getElementById('hud-extra-stat');
+      if (extraEl && !online.active) extraEl.textContent = `${phase} · ${clockStr}`;
+    }
+
+    // =========================================================================
+    // 6. CITY WORLD BUILDER (LOD Skyscrapers, Instanced Trees, Cars, Citizens)
+    // =========================================================================
+    const CITY_GRID = 6; // 6x6 blocks
+    const BLOCK_SIZE = 74;
+    const STREET_W = 20;
+    const HALF_WORLD = (CITY_GRID * BLOCK_SIZE) / 2;
+
+    const buildingBoxes = []; // { minX, maxX, minZ, maxZ, height, cx, cz }
+    const buildingMaterials = [];
+    const destructibles = []; // { id, type, mesh, pos, radius, hp, maxHp, broken, respawnTimer }
+    const trafficCars = [];
+    const citizens = [];
+    const tokens = [];
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+
+    // Character Selection Preview Stage (offset far away or hidden during play)
+    const previewGroup = new THREE.Group();
+    previewGroup.position.set(0, 500, 0);
+    scene.add(previewGroup);
+    let previewHeroMesh = null;
+    const previewPedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.7, 0.45, 32),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.75, roughness: 0.25 })
+    );
+    previewPedestal.position.y = -0.225;
+    previewGroup.add(previewPedestal);
+    const previewRing = new THREE.Mesh(
+      new THREE.TorusGeometry(2.35, 0.06, 12, 48),
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 1.8 })
+    );
+    previewRing.rotation.x = Math.PI / 2;
+    previewRing.position.y = 0.02;
+    previewGroup.add(previewRing);
+
+    function createCarMesh(colorHex) {
+      const car = new THREE.Group();
+      const bodyMat = new THREE.MeshPhysicalMaterial({ color: colorHex, roughness: 0.24, metalness: 0.65, clearcoat: 0.7 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.85 });
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.72, 4.4), bodyMat);
+      chassis.position.y = 0.58;
+      chassis.castShadow = true;
+      chassis.receiveShadow = true;
+      car.add(chassis);
+
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.62, 2.2), glassMat);
+      cabin.position.set(0, 1.18, -0.15);
+      cabin.castShadow = true;
+      car.add(cabin);
+
+      const headL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.16, 0.08),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfef9c3, emissiveIntensity: 1.5 })
+      );
+      headL.position.set(-0.68, 0.62, 2.21);
+      const headR = headL.clone();
+      headR.position.x = 0.68;
+      car.add(headL, headR);
+
+      [[-0.98, 1.35], [0.98, 1.35], [-0.98, -1.35], [0.98, -1.35]].forEach(([wx, wz]) => {
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12), wheelMat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(wx, 0.36, wz);
+        car.add(w);
+      });
+      return car;
+    }
+
+    function buildCity() {
+      // Ground / Asphalt Base extending past playable zone
+      const groundGeo = new THREE.PlaneGeometry(1400, 1400);
+      TEX.road.repeat.set(60, 60);
+      const groundMat = new THREE.MeshStandardMaterial({ map: TEX.road, roughness: 0.88, metalness: 0.05 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      worldGroup.add(ground);
+
+      // Natural Outer Mountain / Horizon Ring (avoids empty void edge)
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.92 });
+      const rimCount = 36;
+      const rimInst = new THREE.InstancedMesh(new THREE.ConeGeometry(42, 95, 6), rimMat, rimCount);
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < rimCount; i++) {
+        const ang = (i / rimCount) * Math.PI * 2;
+        const rad = HALF_WORLD + 165 + (i % 3) * 30;
+        dummy.position.set(Math.cos(ang) * rad, 40, Math.sin(ang) * rad);
+        dummy.scale.set(1.2 + (i % 4) * 0.3, 0.7 + (i % 5) * 0.25, 1.2);
+        dummy.rotation.y = ang;
+        dummy.updateMatrix();
+        rimInst.setMatrixAt(i, dummy.matrix);
+      }
+      rimInst.computeBoundingSphere();
+      worldGroup.add(rimInst);
+
+      // Building Materials
+      TEX.bldgs.forEach(t => {
+        buildingMaterials.push(new THREE.MeshStandardMaterial({
+          map: t.map,
+          emissiveMap: t.emissiveMap,
+          emissive: new THREE.Color(0xffffff),
+          emissiveIntensity: 0.25,
+          roughness: 0.35,
+          metalness: 0.25,
+        }));
+      });
+
+      const sidewalkMat = new THREE.MeshStandardMaterial({ map: TEX.sidewalk, roughness: 0.82 });
+      const crateMat = new THREE.MeshStandardMaterial({ map: TEX.crate, roughness: 0.78 });
+      const brickMat = new THREE.MeshStandardMaterial({ map: TEX.brick, roughness: 0.85 });
+
+      const treePositions = [];
+      const lampPositions = [];
+      let destIdCounter = 0;
+
+      // Build 6x6 Blocks
+      for (let gx = 0; gx < CITY_GRID; gx++) {
+        for (let gz = 0; gz < CITY_GRID; gz++) {
+          const cx = -HALF_WORLD + gx * BLOCK_SIZE + BLOCK_SIZE / 2;
+          const cz = -HALF_WORLD + gz * BLOCK_SIZE + BLOCK_SIZE / 2;
+          const plotW = BLOCK_SIZE - STREET_W;
+
+          // Sidewalk Pad (offset +0.08 Y to avoid Z-fighting)
+          const pad = new THREE.Mesh(new THREE.BoxGeometry(plotW, 0.24, plotW), sidewalkMat);
+          pad.position.set(cx, 0.12, cz);
+          pad.receiveShadow = true;
+          worldGroup.add(pad);
+
+          // Central Park Block at (2, 2) for open combat & greenery
+          if (gx === 2 && gz === 2) {
+            const grass = new THREE.Mesh(
+              new THREE.BoxGeometry(plotW - 6, 0.28, plotW - 6),
+              new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 })
+            );
+            grass.position.set(cx, 0.14, cz);
+            grass.receiveShadow = true;
+            worldGroup.add(grass);
+            for (let t = 0; t < 14; t++) {
+              treePositions.push([
+                cx + (Math.random() - 0.5) * (plotW - 14),
+                cz + (Math.random() - 0.5) * (plotW - 14),
+              ]);
+            }
+          } else {
+            // 2-3 Skyscrapers per block using THREE.LOD
+            const subCount = (gx + gz) % 2 === 0 ? 2 : 3;
+            for (let b = 0; b < subCount; b++) {
+              const bw = 16 + ((gx * 7 + b * 5) % 10);
+              const bd = 16 + ((gz * 11 + b * 3) % 10);
+              const bh = 28 + ((gx * 13 + gz * 17 + b * 19) % 68);
+              const ox = (b === 0 ? -12 : b === 1 ? 12 : 0) + ((gx % 2) * 2 - 1);
+              const oz = (b === 2 ? 12 : -6);
+              const bx = cx + ox;
+              const bz = cz + oz;
+
+              const mat = buildingMaterials[(gx + gz + b) % buildingMaterials.length];
+              const lod = new THREE.LOD();
+
+              // High detail group (main tower + penthouse crown + antenna)
+              const highGrp = new THREE.Group();
+              const tower = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), mat);
+              tower.position.y = bh / 2;
+              tower.castShadow = true;
+              tower.receiveShadow = true;
+              const roofCrown = new THREE.Mesh(
+                new THREE.BoxGeometry(bw * 0.65, 3.2, bd * 0.65),
+                new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.4 })
+              );
+              roofCrown.position.y = bh + 1.6;
+              const spire = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.18, 0.4, 9, 6),
+                new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 })
+              );
+              spire.position.y = bh + 6.5;
+              highGrp.add(tower, roofCrown, spire);
+
+              // Low detail box for far distance
+              const lowMesh = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), mat);
+              lowMesh.position.y = bh / 2;
+
+              lod.addLevel(highGrp, 0);
+              lod.addLevel(lowMesh, 190);
+              lod.position.set(bx, 0, bz);
+              worldGroup.add(lod);
+
+              buildingBoxes.push({
+                minX: bx - bw / 2,
+                maxX: bx + bw / 2,
+                minZ: bz - bd / 2,
+                maxZ: bz + bd / 2,
+                height: bh,
+                cx: bx,
+                cz: bz,
+              });
+            }
+            // Sidewalk trees & streetlamps
+            treePositions.push([cx - plotW * 0.44, cz + plotW * 0.44]);
+            lampPositions.push([cx + plotW * 0.47, cz - plotW * 0.47]);
+          }
+
+          // Destructible Parked Cars, Crates & Walls along edges
+          if ((gx + gz) % 2 === 0) {
+            const carColors = [0xef4444, 0x3b82f6, 0xf59e0b, 0x10b981, 0xe2e8f0];
+            const carMesh = createCarMesh(carColors[(gx + gz) % carColors.length]);
+            const carX = cx + plotW * 0.5 + 3.2;
+            const carZ = cz + ((gx % 3) - 1) * 14;
+            carMesh.position.set(carX, 0, carZ);
+            worldGroup.add(carMesh);
+            destructibles.push({
+              id: `car_${destIdCounter++}`,
+              type: 'car',
+              mesh: carMesh,
+              originPos: new THREE.Vector3(carX, 0, carZ),
+              radius: 2.3,
+              hp: 65,
+              maxHp: 65,
+              broken: false,
+              respawnTimer: 0,
+            });
+          }
+
+          // Destructible Crates & Brick Walls
+          const crateX = cx - plotW * 0.42;
+          const crateZ = cz - plotW * 0.42;
+          const crateMesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.2), crateMat);
+          crateMesh.position.set(crateX, 1.34, crateZ);
+          crateMesh.castShadow = true;
+          worldGroup.add(crateMesh);
+          destructibles.push({
+            id: `crate_${destIdCounter++}`,
+            type: 'crate',
+            mesh: crateMesh,
+            originPos: crateMesh.position.clone(),
+            radius: 1.5,
+            hp: 30,
+            maxHp: 30,
+            broken: false,
+            respawnTimer: 0,
+          });
+
+          if (gx % 2 === 1) {
+            const wallX = cx + plotW * 0.42;
+            const wallZ = cz + plotW * 0.42;
+            const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(5.5, 2.8, 1.1), brickMat);
+            wallMesh.position.set(wallX, 1.64, wallZ);
+            wallMesh.castShadow = true;
+            worldGroup.add(wallMesh);
+            destructibles.push({
+              id: `wall_${destIdCounter++}`,
+              type: 'wall',
+              mesh: wallMesh,
+              originPos: wallMesh.position.clone(),
+              radius: 2.6,
+              hp: 50,
+              maxHp: 50,
+              broken: false,
+              respawnTimer: 0,
+            });
+          }
+        }
+      }
+
+      // Instanced Trees (trunk + foliage with subtle color variation)
+      if (treePositions.length > 0) {
+        const trunkInst = new THREE.InstancedMesh(
+          new THREE.CylinderGeometry(0.28, 0.42, 3.2, 7),
+          new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }),
+          treePositions.length
+        );
+        const leafInst = new THREE.InstancedMesh(
+          new THREE.DodecahedronGeometry(2.1, 1),
+          new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.8 }),
+          treePositions.length
+        );
+        const _c = new THREE.Color();
+        treePositions.forEach(([tx, tz], i) => {
+          const sc = 0.85 + (i % 4) * 0.12;
+          dummy.position.set(tx, 1.8 * sc, tz);
+          dummy.scale.set(sc, sc, sc);
+          dummy.updateMatrix();
+          trunkInst.setMatrixAt(i, dummy.matrix);
+
+          dummy.position.set(tx, 4.1 * sc, tz);
+          dummy.updateMatrix();
+          leafInst.setMatrixAt(i, dummy.matrix);
+          _c.setHSL(0.32 + (i % 3) * 0.02, 0.58, 0.34 + (i % 4) * 0.04);
+          leafInst.setColorAt(i, _c);
+        });
+        trunkInst.computeBoundingSphere();
+        leafInst.computeBoundingSphere();
+        worldGroup.add(trunkInst, leafInst);
+      }
+
+      // Instanced Streetlamps
+      if (lampPositions.length > 0) {
+        const poleInst = new THREE.InstancedMesh(
+          new THREE.CylinderGeometry(0.1, 0.14, 6.2, 6),
+          new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 }),
+          lampPositions.length
+        );
+        const bulbInst = new THREE.InstancedMesh(
+          new THREE.SphereGeometry(0.35, 8, 8),
+          new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfde047, emissiveIntensity: 1.6 }),
+          lampPositions.length
+        );
+        lampPositions.forEach(([lx, lz], i) => {
+          dummy.position.set(lx, 3.3, lz);
+          dummy.scale.set(1, 1, 1);
+          dummy.updateMatrix();
+          poleInst.setMatrixAt(i, dummy.matrix);
+          dummy.position.set(lx, 6.4, lz);
+          dummy.updateMatrix();
+          bulbInst.setMatrixAt(i, dummy.matrix);
+        });
+        poleInst.computeBoundingSphere();
+        bulbInst.computeBoundingSphere();
+        worldGroup.add(poleInst, bulbInst);
+      }
+
+      // Moving Traffic Cars along Avenues
+      const roadOffsets = [];
+      for (let i = 0; i <= CITY_GRID; i++) {
+        roadOffsets.push(-HALF_WORLD + i * BLOCK_SIZE);
+      }
+      const tColors = [0xf59e0b, 0x38bdf8, 0xef4444, 0xf8fafc, 0x10b981, 0x8b5cf6];
+      for (let i = 0; i < 18; i++) {
+        const axis = i % 2 === 0 ? 'x' : 'z';
+        const lane = roadOffsets[i % roadOffsets.length] + (i % 2 === 0 ? 4 : -4);
+        const mesh = createCarMesh(tColors[i % tColors.length]);
+        const posVal = (Math.random() - 0.5) * (HALF_WORLD * 1.8);
+        const dir = i % 3 === 0 ? -1 : 1;
+        if (axis === 'x') {
+          mesh.position.set(posVal, 0, lane);
+          mesh.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+        } else {
+          mesh.position.set(lane, 0, posVal);
+          mesh.rotation.y = dir > 0 ? 0 : Math.PI;
+        }
+        worldGroup.add(mesh);
+        trafficCars.push({ mesh, axis, dir, speed: 12 + (i % 4) * 3, hp: 55 });
+      }
+
+      // Walking Citizens on Sidewalks
+      const shirtColors = [0x3b82f6, 0xef4444, 0x10b981, 0xf59e0b, 0xa855f7, 0xec4899];
+      for (let i = 0; i < 28; i++) {
+        const cGrp = new THREE.Group();
+        const torso = new THREE.Mesh(
+          new THREE.BoxGeometry(0.45, 0.65, 0.25),
+          new THREE.MeshStandardMaterial({ color: shirtColors[i % shirtColors.length], roughness: 0.7 })
+        );
+        torso.position.y = 1.05;
+        const head = new THREE.Mesh(
+          new THREE.SphereGeometry(0.17, 8, 8),
+          new THREE.MeshStandardMaterial({ color: 0xf1c27d, roughness: 0.7 })
+        );
+        head.position.y = 1.56;
+        const legs = new THREE.Mesh(
+          new THREE.BoxGeometry(0.36, 0.7, 0.22),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 })
+        );
+        legs.position.y = 0.36;
+        cGrp.add(torso, head, legs);
+
+        const ang = Math.random() * Math.PI * 2;
+        const rx = (Math.random() - 0.5) * (HALF_WORLD * 1.4);
+        const rz = (Math.random() - 0.5) * (HALF_WORLD * 1.4);
+        cGrp.position.set(rx, 0.24, rz);
+        worldGroup.add(cGrp);
+        citizens.push({
+          mesh: cGrp,
+          vx: Math.cos(ang) * 2.5,
+          vz: Math.sin(ang) * 2.5,
+          timer: 3 + Math.random() * 4,
+        });
+      }
+
+      // Collectible Tokens (Free Roam)
+      const tokenGeo = new THREE.OctahedronGeometry(0.95, 0);
+      const tokenMat = new THREE.MeshStandardMaterial({
+        color: 0xfbbf24,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 1.4,
+        metalness: 0.8,
+        roughness: 0.2,
+      });
+      for (let i = 0; i < 20; i++) {
+        const tm = new THREE.Mesh(tokenGeo, tokenMat);
+        const gx = Math.floor(Math.random() * CITY_GRID);
+        const gz = Math.floor(Math.random() * CITY_GRID);
+        const tx = -HALF_WORLD + gx * BLOCK_SIZE + (Math.random() > 0.5 ? 0 : 20);
+        const tz = -HALF_WORLD + gz * BLOCK_SIZE + (Math.random() > 0.5 ? 0 : 20);
+        const ty = i % 3 === 0 ? 18 + Math.random() * 20 : 1.6;
+        tm.position.set(tx, ty, tz);
+        worldGroup.add(tm);
+        tokens.push({ mesh: tm, collected: false });
+      }
+    }
+    buildCity();
+
+    // =========================================================================
+    // 7. VFX: PARTICLES, SHOCKWAVES, LIGHTNING, PROJECTILES, WEB LINES
+    // =========================================================================
+    const particles = [];
+    const projectiles = [];
+    const beams = [];
+    const shockwaves = [];
+
+    const _partGeo = new THREE.BoxGeometry(0.28, 0.28, 0.28);
+    function spawnParticles(pos, colorHex, count = 14, speed = 12) {
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+      for (let i = 0; i < count; i++) {
+        const m = new THREE.Mesh(_partGeo, mat);
+        m.position.copy(pos);
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        const spd = speed * (0.4 + Math.random() * 0.8);
+        scene.add(m);
+        particles.push({
+          mesh: m,
+          vx: Math.sin(phi) * Math.cos(theta) * spd,
+          vy: Math.abs(Math.cos(phi)) * spd + 2,
+          vz: Math.sin(phi) * Math.sin(theta) * spd,
+          life: 0.45 + Math.random() * 0.45,
+          maxLife: 0.9,
+        });
+      }
+    }
+
+    function spawnBeam(start, end, colorHex, width = 0.16, dur = 0.18) {
+      const dist = start.distanceTo(end);
+      if (dist < 0.1) return;
+      const geo = new THREE.CylinderGeometry(width, width, dist, 8);
+      geo.rotateX(Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(start).lerp(end, 0.5);
+      mesh.lookAt(end);
+      scene.add(mesh);
+      beams.push({ mesh, life: dur, maxLife: dur });
+    }
+
+    function spawnLightning(targetPos, colorHex = 0x7dd3fc) {
+      let prev = new THREE.Vector3(targetPos.x + (Math.random() - 0.5) * 6, targetPos.y + 65, targetPos.z + (Math.random() - 0.5) * 6);
+      const segs = 7;
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs;
+        const next = new THREE.Vector3(
+          THREE.MathUtils.lerp(prev.x, targetPos.x, t) + (i < segs ? (Math.random() - 0.5) * 5 : 0),
+          THREE.MathUtils.lerp(prev.y, targetPos.y, t),
+          THREE.MathUtils.lerp(prev.z, targetPos.z, t) + (i < segs ? (Math.random() - 0.5) * 5 : 0)
+        );
+        spawnBeam(prev, next, colorHex, 0.24, 0.28);
+        prev = next;
+      }
+      spawnShockwave(targetPos, colorHex, 11, 0.35);
+      spawnParticles(targetPos, colorHex, 18, 16);
+    }
+
+    function spawnShockwave(pos, colorHex, maxRadius = 12, dur = 0.4) {
+      const geo = new THREE.RingGeometry(0.5, 1.1, 32);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, Math.max(0.25, pos.y + 0.2), pos.z);
+      scene.add(mesh);
+      shockwaves.push({ mesh, maxRadius, life: dur, maxLife: dur });
+    }
+
+    // Active Web-Swing Tether Line
+    const webLineMat = new THREE.LineBasicMaterial({ color: 0xf8fafc, linewidth: 2 });
+    const webLineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const webLineMesh = new THREE.Line(webLineGeo, webLineMat);
+    webLineMesh.visible = false;
+    scene.add(webLineMesh);
+
+    // =========================================================================
+    // 8. ENEMIES, BOSSES & MISSIONS SYSTEM
+    // =========================================================================
+    const MISSIONS = [
+      {
+        id: 0,
+        name: '1. Bank Heist',
+        desc: 'Stop the armed bank robbers & armored getaway crew at Central Plaza!',
+        timeLimit: 150,
+        type: 'robbers',
+        targetPos: new THREE.Vector3(37, 0, -37),
+      },
+      {
+        id: 1,
+        name: '2. Skyscraper Inferno',
+        desc: 'Rescue 4 trapped citizens from the burning tower (press E nearby) & stop arson drones!',
+        timeLimit: 180,
+        type: 'rescue',
+        targetPos: new THREE.Vector3(-37, 0, 37),
+      },
+      {
+        id: 2,
+        name: '3. Rogue Flying Mech',
+        desc: 'Intercept and destroy the flying combat robot patrolling Midtown!',
+        timeLimit: 180,
+        type: 'robot',
+        targetPos: new THREE.Vector3(37, 26, 37),
+      },
+      {
+        id: 3,
+        name: '4. Final Boss: Titanium Overlord',
+        desc: 'Defeat the colossal Titanium Overlord threatening the metropolis!',
+        timeLimit: 240,
+        type: 'boss',
+        targetPos: new THREE.Vector3(0, 0, 0),
+      },
+    ];
+
+    let unlockedMission = 0;
+    let selectedMissionIdx = 0;
+    let gameState = 'menu'; // 'menu' | 'charsel' | 'playing' | 'paused' | 'ended'
+    let gameMode = 'mission'; // 'mission' | 'freeroam' | 'online_coop' | 'online_versus'
+
+    const enemies = [];
+    const rescueTargets = [];
+    let fireFxGroup = null;
+    let missionTimer = 0;
+    let missionProgress = { done: 0, total: 0 };
+
+    function buildEnemyMesh(kind) {
+      const grp = new THREE.Group();
+      if (kind === 'thug') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.4), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 }));
+        body.position.y = 1.25;
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), new THREE.MeshStandardMaterial({ color: 0x111827 }));
+        head.position.y = 1.9;
+        const legs = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.8, 0.35), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+        legs.position.y = 0.4;
+        const gun = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.18, 0.65), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8 }));
+        gun.position.set(0.38, 1.35, 0.35);
+        grp.add(body, head, legs, gun);
+      } else if (kind === 'drone' || kind === 'flying_robot') {
+        const sc = kind === 'flying_robot' ? 2.8 : 1.0;
+        const core = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.75 * sc, 1),
+          new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.2 })
+        );
+        core.position.y = 1.2 * sc;
+        const eye = new THREE.Mesh(
+          new THREE.SphereGeometry(0.28 * sc, 10, 10),
+          new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.2 })
+        );
+        eye.position.set(0, 1.2 * sc, 0.6 * sc);
+        const wingL = new THREE.Mesh(new THREE.BoxGeometry(1.4 * sc, 0.18 * sc, 0.55 * sc), new THREE.MeshStandardMaterial({ color: 0x991b1b, metalness: 0.7 }));
+        wingL.position.set(-1.1 * sc, 1.35 * sc, 0);
+        const wingR = wingL.clone();
+        wingR.position.x = 1.1 * sc;
+        grp.add(core, eye, wingL, wingR);
+      } else if (kind === 'boss') {
+        const torso = new THREE.Mesh(
+          new THREE.BoxGeometry(2.6, 2.8, 1.7),
+          new THREE.MeshPhysicalMaterial({ color: 0x3f3f46, metalness: 0.9, roughness: 0.22, clearcoat: 0.5 })
+        );
+        torso.position.y = 3.6;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.0), new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.9 }));
+        head.position.y = 5.5;
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.15), new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xf97316, emissiveIntensity: 2.5 }));
+        visor.position.set(0, 5.55, 0.5);
+        const legs = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.2, 1.2), new THREE.MeshStandardMaterial({ color: 0x27272a, metalness: 0.8 }));
+        legs.position.y = 1.1;
+        const armL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.2, 0.8), new THREE.MeshStandardMaterial({ color: 0x991b1b, metalness: 0.7 }));
+        armL.position.set(-1.85, 3.5, 0);
+        const armR = armL.clone();
+        armR.position.x = 1.85;
+        grp.add(torso, head, visor, legs, armL, armR);
+      }
+      grp.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      return grp;
+    }
+
+    let enemyIdSeq = 1;
+    function spawnEnemy(kind, pos, customId = null) {
+      const mesh = buildEnemyMesh(kind);
+      mesh.position.copy(pos);
+      scene.add(mesh);
+      const hpMap = { thug: 75, drone: 90, flying_robot: 480, boss: 1100 };
+      const radMap = { thug: 1.2, drone: 1.5, flying_robot: 3.4, boss: 3.2 };
+      const e = {
+        id: customId || `e_${enemyIdSeq++}`,
+        kind,
+        mesh,
+        hp: hpMap[kind] || 80,
+        maxHp: hpMap[kind] || 80,
+        radius: radMap[kind] || 1.3,
+        shootTimer: 1 + Math.random() * 2,
+        flying: kind === 'drone' || kind === 'flying_robot',
+        baseY: pos.y,
+        dead: false,
+      };
+      enemies.push(e);
+      return e;
+    }
+
+    function clearMissionEntities() {
+      enemies.forEach(e => scene.remove(e.mesh));
+      enemies.length = 0;
+      rescueTargets.forEach(r => scene.remove(r.mesh));
+      rescueTargets.length = 0;
+      if (fireFxGroup) {
+        scene.remove(fireFxGroup);
+        fireFxGroup = null;
+      }
+    }
+
+    function setupMission(idx, isGuestSync = false) {
+      clearMissionEntities();
+      const m = MISSIONS[idx];
+      missionTimer = m.timeLimit;
+      missionProgress = { done: 0, total: 0 };
+
+      if (isGuestSync) return; // Guest receives enemy list from Host
+
+      if (m.type === 'robbers') {
+        const spots = [
+          [32, 0.2, -32], [44, 0.2, -32], [32, 0.2, -44], [44, 0.2, -44], [38, 0.2, -26], [26, 0.2, -38]
+        ];
+        spots.forEach(([x, y, z]) => spawnEnemy('thug', new THREE.Vector3(x, y, z)));
+        missionProgress.total = spots.length;
+      } else if (m.type === 'rescue') {
+        // Pick a tall building near (-37, 37) and put burning floor flames + 4 citizens
+        fireFxGroup = new THREE.Group();
+        const flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.85 });
+        for (let i = 0; i < 12; i++) {
+          const fl = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.8, 6), flameMat);
+          fl.position.set(-37 + (Math.random() - 0.5) * 18, 12 + (i % 3) * 7, 37 + (Math.random() - 0.5) * 18);
+          fireFxGroup.add(fl);
+        }
+        scene.add(fireFxGroup);
+
+        const cSpots = [[-45, 0.3, 45], [-29, 0.3, 45], [-45, 0.3, 29], [-29, 10, 29]];
+        cSpots.forEach(([x, y, z], i) => {
+          const grp = new THREE.Group();
+          const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+          body.position.y = 0.65;
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), new THREE.MeshStandardMaterial({ color: 0xf1c27d }));
+          head.position.y = 1.48;
+          const beacon = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.18, 0.18, 18, 8),
+            new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 })
+          );
+          beacon.position.y = 9;
+          grp.add(body, head, beacon);
+          grp.position.set(x, y, z);
+          scene.add(grp);
+          rescueTargets.push({ id: `cit_${i}`, mesh: grp, rescued: false });
+        });
+        spawnEnemy('drone', new THREE.Vector3(-37, 14, 37));
+        spawnEnemy('drone', new THREE.Vector3(-44, 18, 30));
+        missionProgress.total = cSpots.length;
+      } else if (m.type === 'robot') {
+        spawnEnemy('flying_robot', new THREE.Vector3(37, 24, 37));
+        spawnEnemy('drone', new THREE.Vector3(24, 18, 42));
+        spawnEnemy('drone', new THREE.Vector3(46, 18, 28));
+        missionProgress.total = 3;
+      } else if (m.type === 'boss') {
+        spawnEnemy('boss', new THREE.Vector3(0, 0.24, -18));
+        spawnEnemy('thug', new THREE.Vector3(-12, 0.24, -12));
+        spawnEnemy('thug', new THREE.Vector3(12, 0.24, -12));
+        missionProgress.total = 3;
+      }
+    }
+
+    function spawnFreeRoamCrime() {
+      if (enemies.length >= 6) return;
+      const gx = Math.floor(Math.random() * CITY_GRID);
+      const gz = Math.floor(Math.random() * CITY_GRID);
+      const sx = -HALF_WORLD + gx * BLOCK_SIZE;
+      const sz = -HALF_WORLD + gz * BLOCK_SIZE;
+      const kind = Math.random() > 0.72 ? 'drone' : 'thug';
+      spawnEnemy(kind, new THREE.Vector3(sx, kind === 'drone' ? 12 : 0.25, sz));
+    }
+
+    // =========================================================================
+    // 9. PLAYER STATE, PHYSICS, CAMERA & ABILITIES
+    // =========================================================================
+    let selectedHeroId = HEROES[0].id;
+    let playerMesh = null;
+    const player = {
+      pos: new THREE.Vector3(0, 0.3, 28),
+      vel: new THREE.Vector3(),
+      yaw: Math.PI,
+      camYaw: 0,
+      camPitch: 0.28,
+      grounded: true,
+      jumpsLeft: 2,
+      flying: false,
+      swinging: false,
+      swingAnchor: new THREE.Vector3(),
+      swingLen: 20,
+      hp: 130,
+      maxHp: 130,
+      energy: 100,
+      maxEnergy: 100,
+      ultCd: 0,
+      ultMaxCd: 12,
+      lmbCd: 0,
+      rmbCd: 0,
+      attackAnim: 0,
+      attackType: 'melee',
+      shieldOut: false,
+      score: 0,
+      kos: 0,
+      deadTimer: 0,
+    };
+
+    const keys = {};
+    let pointerLocked = false;
+    const camPosCur = new THREE.Vector3(0, 6, 36);
+    const camLookCur = new THREE.Vector3(0, 2, 28);
+
+    function getHeroDef(id = selectedHeroId) {
+      return HEROES.find(h => h.id === id) || HEROES[0];
+    }
+
+    function spawnLocalPlayerHero(heroId) {
+      if (playerMesh) scene.remove(playerMesh);
+      const def = getHeroDef(heroId);
+      playerMesh = buildHeroMesh(heroId);
+      scene.add(playerMesh);
+
+      player.hp = def.maxHp;
+      player.maxHp = def.maxHp;
+      player.energy = 100;
+      player.ultCd = 0;
+      player.lmbCd = 0;
+      player.rmbCd = 0;
+      player.flying = false;
+      player.swinging = false;
+      player.shieldOut = false;
+      player.vel.set(0, 0, 0);
+
+      // Separate spawn spots in Online Versus so players don't overlap
+      if (gameMode === 'online_versus') {
+        player.pos.set(online.isHost ? -18 : 18, 0.3, 0);
+        player.camYaw = online.isHost ? -Math.PI / 2 : Math.PI / 2;
+      } else {
+        player.pos.set(0, 0.3, 28);
+        player.camYaw = 0;
+      }
+      player.yaw = player.camYaw + Math.PI;
+      playerMesh.position.copy(player.pos);
+    }
+
+    // Building & World Boundary Collision Resolution
+    function resolveWorldCollisions(pos, vel, radius = 0.7, height = 2.0) {
+      const bound = HALF_WORLD + 12;
+      pos.x = THREE.MathUtils.clamp(pos.x, -bound, bound);
+      pos.z = THREE.MathUtils.clamp(pos.z, -bound, bound);
+
+      let touchingWall = false;
+      for (let i = 0; i < buildingBoxes.length; i++) {
+        const b = buildingBoxes[i];
+        if (pos.y < b.height && pos.y + height > 0) {
+          const minX = b.minX - radius;
+          const maxX = b.maxX + radius;
+          const minZ = b.minZ - radius;
+          const maxZ = b.maxZ + radius;
+          if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ) {
+            // Check if landing on roof
+            if (pos.y >= b.height - 1.4 && vel.y <= 0) {
+              pos.y = b.height;
+              vel.y = 0;
+              return { groundedOnRoof: true, touchingWall: false };
+            }
+            // Push out along shallowest axis
+            const dx1 = pos.x - minX, dx2 = maxX - pos.x;
+            const dz1 = pos.z - minZ, dz2 = maxZ - pos.z;
+            const m = Math.min(dx1, dx2, dz1, dz2);
+            if (m === dx1) { pos.x = minX; vel.x = Math.min(0, vel.x); }
+            else if (m === dx2) { pos.x = maxX; vel.x = Math.max(0, vel.x); }
+            else if (m === dz1) { pos.z = minZ; vel.z = Math.min(0, vel.z); }
+            else { pos.z = maxZ; vel.z = Math.max(0, vel.z); }
+            touchingWall = true;
+          }
+        }
+      }
+      return { groundedOnRoof: false, touchingWall };
+    }
+
+    // Camera Aim Ray Point
+    function getAimPoint(maxDist = 110) {
+      const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(-player.camPitch, player.camYaw, 0, 'YXZ')).normalize();
+      return camera.position.clone().addScaledVector(dir, maxDist);
+    }
+
+    function getAimDirection() {
+      return new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(-player.camPitch, player.camYaw, 0, 'YXZ')).normalize();
+    }
+
+    // =========================================================================
+    // 10. COMBAT & HERO ABILITY EXECUTION
+    // =========================================================================
+    function damageDestructiblesInRadius(center, radius, dmg, broadcast = true) {
+      for (let i = 0; i < destructibles.length; i++) {
+        const d = destructibles[i];
+        if (d.broken) continue;
+        if (d.mesh.position.distanceTo(center) <= radius + d.radius) {
+          d.hp -= dmg;
+          spawnParticles(d.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xfbbf24, 8, 10);
+          if (d.hp <= 0) {
+            destroyDestructible(d, broadcast);
+            player.score += 50;
+          }
+        }
+      }
+    }
+
+    function destroyDestructible(d, broadcast = true) {
+      if (d.broken) return;
+      d.broken = true;
+      d.respawnTimer = 28;
+      d.mesh.visible = false;
+      const p = d.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
+      spawnParticles(p, d.type === 'car' ? 0xf97316 : 0xb45309, 22, 18);
+      spawnShockwave(p, d.type === 'car' ? 0xef4444 : 0xd97706, 6, 0.3);
+      audio.explode();
+      if (broadcast && online.active) {
+        online.send({ type: 'destroy', objId: d.id });
+      }
+    }
+
+    function damageEnemiesInRadius(center, radius, dmg) {
+      let hits = 0;
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (e.dead) continue;
+        const ePos = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+        if (ePos.distanceTo(center) <= radius + e.radius) {
+          applyDamageToEnemy(e, dmg, true);
+          hits++;
+        }
+      }
+      // PvP Hit check against Remote Friend!
+      if (online.active && gameMode === 'online_versus' && remoteHero.visible && remoteHero.hp > 0) {
+        const rPos = remoteHero.pos.clone().add(new THREE.Vector3(0, 1.2, 0));
+        if (rPos.distanceTo(center) <= radius + 1.4) {
+          online.send({ type: 'pvp_hit', damage: dmg, from: MY_LOGIN });
+          spawnParticles(rPos, 0xef4444, 14, 12);
+          hits++;
+        }
+      }
+      return hits;
+    }
+
+    function applyDamageToEnemy(e, dmg, broadcast = true) {
+      if (e.dead) return;
+      e.hp -= dmg;
+      const pos = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      spawnParticles(pos, 0xfef08a, 10, 11);
+
+      if (broadcast && online.active && gameMode === 'online_coop') {
+        online.send({ type: 'enemy_hit', enemyId: e.id, damage: dmg, killed: e.hp <= 0 });
+      }
+
+      if (e.hp <= 0) {
+        e.dead = true;
+        scene.remove(e.mesh);
+        spawnParticles(pos, 0xef4444, 22, 16);
+        audio.explode();
+        const pts = e.kind === 'boss' ? 1500 : (e.kind === 'flying_robot' ? 600 : 150);
+        player.score += pts;
+        if (gameMode === 'mission' || gameMode === 'online_coop') {
+          if (MISSIONS[selectedMissionIdx].type !== 'rescue') {
+            missionProgress.done++;
+          }
+        }
+      }
+    }
+
+    function performPrimaryAttack() {
+      if (player.lmbCd > 0 || player.deadTimer > 0) return;
+      const def = getHeroDef();
+      const handPos = player.pos.clone().add(new THREE.Vector3(0, 1.45, 0));
+      const dir = getAimDirection();
+      const forward = new THREE.Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw)).normalize();
+
+      if (def.id === 'webswinger') {
+        player.lmbCd = 0.25;
+        player.attackAnim = 0.25;
+        player.attackType = 'web';
+        audio.web();
+        spawnProjectile('web', handPos.clone().addScaledVector(dir, 1), dir, 68, 28, 0xf8fafc, true);
+        if (online.active) online.send({ type: 'attack', kind: 'web', origin: handPos.toArray(), dir: dir.toArray() });
+      } else if (def.id === 'ironinventor') {
+        player.lmbCd = 0.24;
+        player.attackAnim = 0.24;
+        player.attackType = 'beam';
+        audio.beam();
+        const end = handPos.clone().addScaledVector(dir, 55);
+        spawnBeam(handPos, end, 0x38bdf8, 0.14, 0.16);
+        rayDamageCheck(handPos, dir, 55, 36);
+        if (online.active) online.send({ type: 'attack', kind: 'beam', origin: handPos.toArray(), end: end.toArray() });
+      } else if (def.id === 'supersoldier') {
+        player.lmbCd = 0.34;
+        player.attackAnim = 0.3;
+        player.attackType = 'melee';
+        audio.punch();
+        const hitCenter = handPos.clone().addScaledVector(forward, 2.2);
+        damageEnemiesInRadius(hitCenter, 2.8, 42);
+        damageDestructiblesInRadius(hitCenter, 2.6, 35);
+        spawnShockwave(hitCenter, 0x60a5fa, 3.5, 0.2);
+        if (online.active) online.send({ type: 'attack', kind: 'melee', pos: hitCenter.toArray(), color: 0x60a5fa });
+      } else if (def.id === 'thunderwarrior') {
+        player.lmbCd = 0.42;
+        player.attackAnim = 0.36;
+        player.attackType = 'melee';
+        audio.punch();
+        const hitCenter = handPos.clone().addScaledVector(forward, 2.6);
+        damageEnemiesInRadius(hitCenter, 3.6, 56);
+        damageDestructiblesInRadius(hitCenter, 3.2, 50);
+        spawnShockwave(hitCenter, 0x7dd3fc, 5.2, 0.26);
+        if (online.active) online.send({ type: 'attack', kind: 'melee', pos: hitCenter.toArray(), color: 0x7dd3fc });
+      } else if (def.id === 'greengiant') {
+        player.lmbCd = 0.52;
+        player.attackAnim = 0.42;
+        player.attackType = 'melee';
+        audio.smash();
+        const hitCenter = player.pos.clone().addScaledVector(forward, 3.0);
+        damageEnemiesInRadius(hitCenter, 4.8, 78);
+        damageDestructiblesInRadius(hitCenter, 4.8, 85);
+        spawnShockwave(hitCenter, 0x4ade80, 7.5, 0.35);
+        if (online.active) online.send({ type: 'attack', kind: 'melee', pos: hitCenter.toArray(), color: 0x4ade80 });
+      }
+    }
+
+    function performSecondaryAbility() {
+      if (player.rmbCd > 0 || player.deadTimer > 0) return;
+      const def = getHeroDef();
+      const handPos = player.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
+      const dir = getAimDirection();
+
+      if (def.id === 'webswinger') {
+        if (player.swinging) {
+          player.swinging = false;
+          webLineMesh.visible = false;
+          player.vel.y += 6;
+          return;
+        }
+        // Find nearest tall building anchor ahead, or create elevated sky-swing point
+        let bestAnchor = null;
+        let bestScore = Infinity;
+        for (let i = 0; i < buildingBoxes.length; i++) {
+          const b = buildingBoxes[i];
+          const top = new THREE.Vector3(b.cx, Math.max(24, b.height * 0.8), b.cz);
+          const dist = top.distanceTo(player.pos);
+          if (dist > 10 && dist < 85) {
+            const toB = top.clone().sub(player.pos).normalize();
+            if (toB.dot(dir) > 0.15 && dist < bestScore) {
+              bestScore = dist;
+              bestAnchor = top;
+            }
+          }
+        }
+        if (!bestAnchor) {
+          bestAnchor = player.pos.clone().addScaledVector(dir, 34).add(new THREE.Vector3(0, 26, 0));
+        }
+        player.swinging = true;
+        player.grounded = false;
+        player.swingAnchor.copy(bestAnchor);
+        player.swingLen = Math.max(10, Math.min(48, player.pos.distanceTo(bestAnchor) * 0.92));
+        player.vel.addScaledVector(dir, 14);
+        player.vel.y = Math.max(player.vel.y, 10);
+        player.rmbCd = 0.25;
+        audio.web();
+      } else if (def.id === 'ironinventor') {
+        if (player.energy < 22) return;
+        player.energy -= 22;
+        player.rmbCd = 1.1;
+        player.attackAnim = 0.3;
+        audio.missile();
+        for (let m = -1; m <= 1; m++) {
+          const mDir = dir.clone().add(new THREE.Vector3(m * 0.08, 0.06, 0)).normalize();
+          spawnProjectile('missile', handPos.clone().add(new THREE.Vector3(m * 0.6, 0.3, 0)), mDir, 44, 52, 0xf59e0b, true);
+        }
+        if (online.active) online.send({ type: 'attack', kind: 'missiles', origin: handPos.toArray(), dir: dir.toArray() });
+      } else if (def.id === 'supersoldier') {
+        if (player.shieldOut) return;
+        player.rmbCd = 1.4;
+        player.shieldOut = true;
+        player.attackAnim = 0.32;
+        audio.shield();
+        spawnProjectile('shield', handPos.clone().addScaledVector(dir, 1.2), dir, 48, 60, 0xef4444, true);
+        if (online.active) online.send({ type: 'attack', kind: 'shield', origin: handPos.toArray(), dir: dir.toArray() });
+      } else if (def.id === 'thunderwarrior') {
+        if (player.energy < 25) return;
+        player.energy -= 25;
+        player.rmbCd = 1.25;
+        player.attackAnim = 0.35;
+        audio.thunder();
+        const strikePos = findAimStrikePoint(handPos, dir, 60);
+        spawnLightning(strikePos, 0x7dd3fc);
+        damageEnemiesInRadius(strikePos, 9, 85);
+        damageDestructiblesInRadius(strikePos, 8, 70);
+        if (online.active) online.send({ type: 'attack', kind: 'lightning', pos: strikePos.toArray() });
+      } else if (def.id === 'greengiant') {
+        if (player.energy < 20) return;
+        player.energy -= 20;
+        player.rmbCd = 1.3;
+        player.attackAnim = 0.4;
+        audio.smash();
+        const center = player.pos.clone().addScaledVector(dir, 3.5);
+        center.y = player.pos.y + 1.0;
+        spawnShockwave(center, 0x4ade80, 14, 0.42);
+        damageEnemiesInRadius(center, 12, 72);
+        damageDestructiblesInRadius(center, 12, 95);
+        if (online.active) online.send({ type: 'attack', kind: 'clap', pos: center.toArray() });
+      }
+    }
+
+    function performUltimate() {
+      if (player.ultCd > 0 || player.deadTimer > 0) return;
+      const def = getHeroDef();
+      player.ultCd = player.ultMaxCd;
+      player.attackAnim = 0.7;
+      player.attackType = 'ultimate';
+      const center = player.pos.clone();
+      const dir = getAimDirection();
+
+      if (def.id === 'webswinger') {
+        audio.web(); audio.explode();
+        spawnShockwave(center, 0xffffff, 18, 0.55);
+        for (let a = 0; a < 10; a++) {
+          const ang = (a / 10) * Math.PI * 2;
+          const d = new THREE.Vector3(Math.cos(ang), 0.1, Math.sin(ang)).normalize();
+          spawnProjectile('web', center.clone().add(new THREE.Vector3(0, 1.5, 0)), d, 58, 45, 0xf8fafc, true);
+        }
+        damageEnemiesInRadius(center, 16, 110);
+        damageDestructiblesInRadius(center, 15, 80);
+      } else if (def.id === 'ironinventor') {
+        audio.beam(); audio.explode();
+        const start = center.clone().add(new THREE.Vector3(0, 1.6, 0));
+        const end = start.clone().addScaledVector(dir, 75);
+        spawnBeam(start, end, 0x22d3ee, 0.75, 0.55);
+        rayDamageCheck(start, dir, 75, 190, 4.5);
+        spawnShockwave(center, 0x38bdf8, 16, 0.45);
+      } else if (def.id === 'supersoldier') {
+        audio.shield(); audio.smash();
+        spawnShockwave(center, 0x3b82f6, 20, 0.55);
+        spawnShockwave(center, 0xef4444, 15, 0.45);
+        damageEnemiesInRadius(center, 18, 150);
+        damageDestructiblesInRadius(center, 16, 100);
+      } else if (def.id === 'thunderwarrior') {
+        audio.thunder();
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2;
+          const lp = center.clone().add(new THREE.Vector3(Math.cos(ang) * 9, 0, Math.sin(ang) * 9));
+          spawnLightning(lp, 0x38bdf8);
+        }
+        spawnShockwave(center, 0x7dd3fc, 22, 0.6);
+        damageEnemiesInRadius(center, 20, 185);
+        damageDestructiblesInRadius(center, 18, 120);
+      } else if (def.id === 'greengiant') {
+        audio.smash(); audio.explode();
+        spawnShockwave(center, 0x22c55e, 26, 0.65);
+        spawnParticles(center, 0x4ade80, 35, 22);
+        damageEnemiesInRadius(center, 24, 240);
+        damageDestructiblesInRadius(center, 22, 160);
+      }
+
+      if (online.active) {
+        online.send({ type: 'attack', kind: 'ultimate', heroId: def.id, pos: center.toArray(), dir: dir.toArray() });
+      }
+    }
+
+    function findAimStrikePoint(origin, dir, dist) {
+      let best = origin.clone().addScaledVector(dir, dist);
+      if (best.y < 0.3) {
+        const t = (0.3 - origin.y) / Math.min(-0.01, dir.y);
+        if (t > 0 && t < dist) best = origin.clone().addScaledVector(dir, t);
+        else best.y = 0.3;
+      }
+      // Snap to nearest enemy near aim ray
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const ep = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+        const toE = ep.clone().sub(origin);
+        const proj = toE.dot(dir);
+        if (proj > 0 && proj < dist) {
+          const perp = origin.clone().addScaledVector(dir, proj).distanceTo(ep);
+          if (perp < 5.5) return ep;
+        }
+      }
+      return best;
+    }
+
+    function rayDamageCheck(origin, dir, dist, dmg, hitRadius = 2.4) {
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (e.dead) continue;
+        const ep = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+        const proj = ep.clone().sub(origin).dot(dir);
+        if (proj > 0 && proj <= dist) {
+          const perp = origin.clone().addScaledVector(dir, proj).distanceTo(ep);
+          if (perp <= hitRadius + e.radius) {
+            applyDamageToEnemy(e, dmg, true);
+          }
+        }
+      }
+      for (const d of destructibles) {
+        if (d.broken) continue;
+        const dp = d.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
+        const proj = dp.clone().sub(origin).dot(dir);
+        if (proj > 0 && proj <= dist) {
+          const perp = origin.clone().addScaledVector(dir, proj).distanceTo(dp);
+          if (perp <= hitRadius + d.radius) {
+            d.hp -= dmg;
+            if (d.hp <= 0) destroyDestructible(d, true);
+          }
+        }
+      }
+      if (online.active && gameMode === 'online_versus' && remoteHero.visible && remoteHero.hp > 0) {
+        const rp = remoteHero.pos.clone().add(new THREE.Vector3(0, 1.2, 0));
+        const proj = rp.clone().sub(origin).dot(dir);
+        if (proj > 0 && proj <= dist) {
+          const perp = origin.clone().addScaledVector(dir, proj).distanceTo(rp);
+          if (perp <= hitRadius + 1.4) {
+            online.send({ type: 'pvp_hit', damage: dmg, from: MY_LOGIN });
+            spawnParticles(rp, 0xef4444, 14, 12);
+          }
+        }
+      }
+    }
+
+    function spawnProjectile(kind, origin, dir, speed, dmg, colorHex, fromPlayer) {
+      let mesh;
+      if (kind === 'shield') {
+        mesh = new THREE.Group();
+        const disc = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.48, 0.48, 0.07, 20),
+          new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.7, roughness: 0.25 })
+        );
+        const ring = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.3, 0.08, 20),
+          new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.7, roughness: 0.25 })
+        );
+        mesh.add(disc, ring);
+      } else {
+        mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(kind === 'missile' ? 0.24 : 0.2, 8, 8),
+          new THREE.MeshBasicMaterial({ color: colorHex })
+        );
+      }
+      mesh.position.copy(origin);
+      scene.add(mesh);
+      projectiles.push({
+        kind,
+        mesh,
+        vel: dir.clone().multiplyScalar(speed),
+        speed,
+        dmg,
+        fromPlayer,
+        life: kind === 'shield' ? 3.2 : 2.2,
+        bouncesLeft: kind === 'shield' ? 3 : 0,
+        returning: false,
+      });
+    }
+
+    // =========================================================================
+    // 11. ONLINE MULTIPLAYER (PeerJS WebRTC P2P, 20Hz Sync + Interpolation)
+    // =========================================================================
+    const remoteHero = {
+      mesh: null,
+      labelSprite: null,
+      visible: false,
+      heroId: 'ironinventor',
+      login: '',
+      pos: new THREE.Vector3(0, 0.3, 0),
+      targetPos: new THREE.Vector3(0, 0.3, 0),
+      yaw: 0,
+      targetYaw: 0,
+      vx: 0, vy: 0, vz: 0,
+      grounded: true,
+      flying: false,
+      swinging: false,
+      shieldOut: false,
+      hp: 150,
+      maxHp: 150,
+      score: 0,
+      kos: 0,
+      attackAnim: 0,
+      attackType: 'melee',
+    };
+
+    function createNameplateSprite(nameText, hpRatio = 1) {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 72;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = 'rgba(9, 13, 24, 0.84)';
+      ctx.fillRect(18, 6, 220, 56);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(18, 6, 220, 56);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(nameText, 128, 35);
+      // HP Bar inside nameplate
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(36, 44, 184, 10);
+      ctx.fillStyle = hpRatio > 0.35 ? '#22c55e' : '#ef4444';
+      ctx.fillRect(36, 44, 184 * Math.max(0, Math.min(1, hpRatio)), 10);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function ensureRemoteHeroMesh(heroId, loginName) {
+      if (!remoteHero.mesh || remoteHero.heroId !== heroId) {
+        if (remoteHero.mesh) scene.remove(remoteHero.mesh);
+        remoteHero.heroId = heroId;
+        remoteHero.mesh = buildHeroMesh(heroId);
+        const tex = createNameplateSprite(loginName || 'Friend', 1);
+        const spMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const sp = new THREE.Sprite(spMat);
+        sp.position.set(0, heroId === 'greengiant' ? 3.8 : 2.9, 0);
+        sp.scale.set(2.8, 0.8, 1);
+        remoteHero.mesh.add(sp);
+        remoteHero.labelSprite = sp;
+        scene.add(remoteHero.mesh);
+      }
+      remoteHero.mesh.visible = true;
+      remoteHero.visible = true;
+    }
+
+    function updateRemoteNameplate() {
+      if (!remoteHero.labelSprite) return;
+      const ratio = remoteHero.maxHp > 0 ? remoteHero.hp / remoteHero.maxHp : 1;
+      const oldMap = remoteHero.labelSprite.material.map;
+      remoteHero.labelSprite.material.map = createNameplateSprite(remoteHero.login, ratio);
+      remoteHero.labelSprite.material.needsUpdate = true;
+      if (oldMap) oldMap.dispose();
+    }
+
+    const online = {
+      peer: null,
+      conn: null,
+      active: false,
+      connected: false,
+      isHost: false,
+      mode: 'coop', // 'coop' | 'versus'
+      friendLogin: '',
+      pingMs: 0,
+      lastPingSent: 0,
+      matchTimer: 180,
+      syncAccum: 0,
+      connectTimeout: null,
+
+      setStatus(msg, cls = 'wait') {
+        const el = document.getElementById('connect-status');
+        el.textContent = msg;
+        el.className = `status-line ${cls}`;
+      },
+
+      initPeer() {
+        if (this.peer && !this.peer.destroyed) return;
+        if (typeof window.Peer === 'undefined') {
+          this.setStatus('PeerJS library failed to load from CDN.', 'err');
+          return;
+        }
+        this.setStatus('Waiting for friend...', 'wait');
+        const myPeerId = PEER_PREFIX + MY_LOGIN;
+        this.peer = new window.Peer(myPeerId, { debug: 1 });
+
+        this.peer.on('open', () => {
+          if (!this.connected) this.setStatus(`Waiting for friend... (Ready as ${MY_LOGIN})`, 'wait');
+        });
+
+        this.peer.on('connection', (incomingConn) => {
+          if (this.conn && this.conn.open) {
+            incomingConn.close();
+            return;
+          }
+          this.isHost = true;
+          this.attachConnection(incomingConn);
+        });
+
+        this.peer.on('error', (err) => {
+          clearTimeout(this.connectTimeout);
+          if (err && (err.type === 'peer-unavailable' || String(err).includes('Could not connect to peer'))) {
+            this.setStatus('Login not found / friend is offline', 'err');
+          } else if (err && err.type === 'unavailable-id') {
+            this.setStatus(`Login "${MY_LOGIN}" is already active in another tab.`, 'err');
+          } else {
+            this.setStatus('Connection error: ' + (err?.message || err?.type || 'Network issue'), 'err');
+          }
+        });
+      },
+
+      joinFriend(friendLoginRaw) {
+        const clean = friendLoginRaw.trim();
+        if (!clean) {
+          this.setStatus('Please enter your friend\'s login.', 'err');
+          return;
+        }
+        if (clean === MY_LOGIN) {
+          this.setStatus('Cannot connect to your own login.', 'err');
+          return;
+        }
+        this.initPeer();
+        if (!this.peer) return;
+
+        this.friendLogin = clean;
+        this.isHost = false;
+        this.setStatus('Connecting...', 'wait');
+
+        const doConnect = () => {
+          const targetId = PEER_PREFIX + clean;
+          const conn = this.peer.connect(targetId, { reliable: true });
+          clearTimeout(this.connectTimeout);
+          this.connectTimeout = setTimeout(() => {
+            if (!this.connected) {
+              try { conn.close(); } catch {}
+              this.setStatus('Login not found / friend is offline', 'err');
+            }
+          }, 8000);
+          this.attachConnection(conn);
+        };
+
+        if (this.peer.open) doConnect();
+        else this.peer.once('open', doConnect);
+      },
+
+      attachConnection(conn) {
+        this.conn = conn;
+        conn.on('open', () => {
+          clearTimeout(this.connectTimeout);
+          this.connected = true;
+          this.setStatus('Connected!', 'ok');
+          conn.send({ type: 'hello', login: MY_LOGIN, mode: this.mode });
+        });
+
+        conn.on('data', (data) => this.handleMessage(data));
+
+        conn.on('close', () => this.handleDisconnect());
+        conn.on('error', () => this.handleDisconnect());
+      },
+
+      send(payload) {
+        if (this.conn && this.conn.open) {
+          try { this.conn.send(payload); } catch {}
+        }
+      },
+
+      handleDisconnect() {
+        clearTimeout(this.connectTimeout);
+        const wasPlaying = this.active || this.connected;
+        this.active = false;
+        this.connected = false;
+        this.conn = null;
+        if (remoteHero.mesh) {
+          scene.remove(remoteHero.mesh);
+          remoteHero.mesh = null;
+        }
+        remoteHero.visible = false;
+        if (wasPlaying) {
+          showToast('Friend disconnected — returning to menu');
+          returnToMainMenu();
+        }
+      },
+
+      handleMessage(msg) {
+        if (!msg || !msg.type) return;
+
+        if (msg.type === 'hello') {
+          this.friendLogin = msg.login || this.friendLogin || 'Friend';
+          remoteHero.login = this.friendLogin;
+          if (!this.isHost && msg.mode) {
+            this.mode = msg.mode;
+          }
+          // Transition both players to Character Selection!
+          document.getElementById('connect-modal').classList.remove('active');
+          enterOnlineCharacterSelect();
+          return;
+        }
+
+        if (msg.type === 'mode_change' && !this.isHost) {
+          this.mode = msg.mode;
+          syncOnlineModeUI();
+          return;
+        }
+
+        if (msg.type === 'ping') {
+          this.send({ type: 'pong', t: msg.t });
+          return;
+        }
+        if (msg.type === 'pong') {
+          this.pingMs = Math.max(1, Math.round(performance.now() - msg.t));
+          document.getElementById('ping-val').textContent = String(this.pingMs);
+          return;
+        }
+
+        if (msg.type === 'state') {
+          ensureRemoteHeroMesh(msg.heroId, remoteHero.login);
+          remoteHero.targetPos.set(msg.x, msg.y, msg.z);
+          if (remoteHero.pos.distanceTo(remoteHero.targetPos) > 25) {
+            remoteHero.pos.copy(remoteHero.targetPos);
+          }
+          remoteHero.targetYaw = msg.ry;
+          remoteHero.vx = msg.vx;
+          remoteHero.vy = msg.vy;
+          remoteHero.vz = msg.vz;
+          remoteHero.grounded = msg.grounded;
+          remoteHero.flying = msg.flying;
+          remoteHero.swinging = msg.swinging;
+          remoteHero.shieldOut = msg.shieldOut;
+          if (remoteHero.hp !== msg.hp || remoteHero.maxHp !== msg.maxHp) {
+            remoteHero.hp = msg.hp;
+            remoteHero.maxHp = msg.maxHp;
+            updateRemoteNameplate();
+          }
+          remoteHero.score = msg.score;
+          remoteHero.kos = msg.kos;
+          return;
+        }
+
+        if (msg.type === 'attack') {
+          remoteHero.attackAnim = msg.kind === 'ultimate' ? 0.7 : 0.3;
+          remoteHero.attackType = msg.kind === 'web' ? 'web' : (msg.kind === 'beam' ? 'beam' : 'melee');
+          if (msg.kind === 'web') {
+            spawnProjectile('web', new THREE.Vector3().fromArray(msg.origin), new THREE.Vector3().fromArray(msg.dir), 68, 0, 0xf8fafc, false);
+          } else if (msg.kind === 'beam') {
+            spawnBeam(new THREE.Vector3().fromArray(msg.origin), new THREE.Vector3().fromArray(msg.end), 0x38bdf8, 0.14, 0.16);
+          } else if (msg.kind === 'missiles') {
+            const o = new THREE.Vector3().fromArray(msg.origin);
+            const d = new THREE.Vector3().fromArray(msg.dir);
+            for (let m = -1; m <= 1; m++) {
+              spawnProjectile('missile', o.clone(), d.clone().add(new THREE.Vector3(m * 0.08, 0.05, 0)).normalize(), 44, 0, 0xf59e0b, false);
+            }
+          } else if (msg.kind === 'shield') {
+            spawnProjectile('shield', new THREE.Vector3().fromArray(msg.origin), new THREE.Vector3().fromArray(msg.dir), 48, 0, 0xef4444, false);
+          } else if (msg.kind === 'lightning') {
+            spawnLightning(new THREE.Vector3().fromArray(msg.pos), 0x7dd3fc);
+          } else if (msg.kind === 'clap' || msg.kind === 'melee') {
+            spawnShockwave(new THREE.Vector3().fromArray(msg.pos), msg.color || 0x4ade80, 7, 0.3);
+          } else if (msg.kind === 'ultimate') {
+            const p = new THREE.Vector3().fromArray(msg.pos);
+            spawnShockwave(p, 0xfbbf24, 18, 0.55);
+          }
+          return;
+        }
+
+        if (msg.type === 'destroy') {
+          const d = destructibles.find(x => x.id === msg.objId);
+          if (d && !d.broken) destroyDestructible(d, false);
+          return;
+        }
+
+        if (msg.type === 'pvp_hit' && gameMode === 'online_versus') {
+          takePlayerDamage(msg.damage, true);
+          return;
+        }
+
+        if (msg.type === 'pvp_ko_award' && gameMode === 'online_versus') {
+          player.kos++;
+          showToast(`KO! (${player.kos} / 5)`);
+          checkOnlineEndConditions();
+          return;
+        }
+
+        if (msg.type === 'enemy_hit' && gameMode === 'online_coop') {
+          const e = enemies.find(x => x.id === msg.enemyId);
+          if (e && !e.dead) {
+            applyDamageToEnemy(e, msg.damage, false);
+          }
+          return;
+        }
+
+        if (msg.type === 'coop_sync' && gameMode === 'online_coop' && !this.isHost) {
+          // Guest syncs enemies & mission timer from host
+          missionTimer = msg.timer;
+          missionProgress.done = msg.done;
+          missionProgress.total = msg.total;
+          msg.enemies.forEach(se => {
+            let localE = enemies.find(x => x.id === se.id);
+            if (!localE && !se.dead) {
+              localE = spawnEnemy(se.kind, new THREE.Vector3(se.x, se.y, se.z), se.id);
+            }
+            if (localE && !localE.dead) {
+              localE.mesh.position.lerp(new THREE.Vector3(se.x, se.y, se.z), 0.55);
+              localE.hp = se.hp;
+              if (se.dead) {
+                localE.dead = true;
+                scene.remove(localE.mesh);
+              }
+            }
+          });
+          return;
+        }
+
+        if (msg.type === 'match_end') {
+          if (gameState !== 'ended') {
+            showOnlineEndScreen(msg.outcomeForReceiver, msg.sharedScore);
+          }
+          return;
+        }
+
+        if (msg.type === 'rematch') {
+          restartOnlineMatch();
+        }
+      },
+
+      tick(dt) {
+        if (!this.active || !this.connected) return;
+        this.syncAccum += dt;
+        // 20 Hz synchronization (every 50ms)
+        if (this.syncAccum >= 0.05) {
+          this.syncAccum = 0;
+          this.send({
+            type: 'state',
+            heroId: selectedHeroId,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
+            ry: player.yaw,
+            vx: player.vel.x,
+            vy: player.vel.y,
+            vz: player.vel.z,
+            grounded: player.grounded,
+            flying: player.flying,
+            swinging: player.swinging,
+            shieldOut: player.shieldOut,
+            hp: Math.max(0, Math.round(player.hp)),
+            maxHp: player.maxHp,
+            score: player.score,
+            kos: player.kos,
+          });
+
+          // Host syncs Co-op enemies & timer
+          if (this.isHost && gameMode === 'online_coop') {
+            this.send({
+              type: 'coop_sync',
+              timer: missionTimer,
+              done: missionProgress.done,
+              total: missionProgress.total,
+              enemies: enemies.map(e => ({
+                id: e.id,
+                kind: e.kind,
+                x: e.mesh.position.x,
+                y: e.mesh.position.y,
+                z: e.mesh.position.z,
+                hp: e.hp,
+                dead: e.dead,
+              })),
+            });
+          }
+        }
+
+        // Periodic Ping every 1.5s
+        const now = performance.now();
+        if (now - this.lastPingSent > 1500) {
+          this.lastPingSent = now;
+          this.send({ type: 'ping', t: now });
+        }
+
+        // Smooth interpolation of remote hero
+        if (remoteHero.visible && remoteHero.mesh) {
+          remoteHero.pos.lerp(remoteHero.targetPos, Math.min(1, dt * 15));
+          // Shortest angle interpolation for yaw
+          let diff = remoteHero.targetYaw - remoteHero.yaw;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          remoteHero.yaw += diff * Math.min(1, dt * 15);
+
+          remoteHero.mesh.position.copy(remoteHero.pos);
+          remoteHero.mesh.rotation.y = remoteHero.yaw;
+          if (remoteHero.attackAnim > 0) remoteHero.attackAnim = Math.max(0, remoteHero.attackAnim - dt);
+          animateHeroMesh(remoteHero.mesh, remoteHero, dt, clockTime);
+        }
+      },
+    };
+
+    // =========================================================================
+    // 12. PLAYER DAMAGE, RESPAWN & GAME FLOW
+    // =========================================================================
+    function takePlayerDamage(amount, fromPvP = false) {
+      if (player.deadTimer > 0 || gameState !== 'playing') return;
+      const def = getHeroDef();
+      const armorMit = def.stats.defense / 280; // ~25%-35% mitigation
+      const finalDmg = Math.max(4, amount * (1 - armorMit));
+      player.hp -= finalDmg;
+      spawnParticles(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xef4444, 8, 9);
+
+      if (player.hp <= 0) {
+        player.hp = 0;
+        if (gameMode === 'online_versus') {
+          // Victim respawns after 2s, killer gains 1 KO
+          player.deadTimer = 2.0;
+          online.send({ type: 'pvp_ko_award', killer: online.friendLogin });
+          remoteHero.kos++;
+          showToast('Knocked Out! Respawning...');
+          checkOnlineEndConditions();
+        } else if (gameMode === 'mission') {
+          triggerSinglePlayerEnd(false, 'Your hero fell in battle!');
+        } else {
+          // Free roam / Co-op respawn
+          player.hp = player.maxHp;
+          player.pos.set(0, 0.3, 28);
+          showToast('Hero recovered at HQ Plaza');
+        }
+      }
+    }
+
+    function checkOnlineEndConditions() {
+      if (gameState !== 'playing' || !online.active) return;
+      if (gameMode === 'online_versus') {
+        if (player.kos >= 5 || remoteHero.kos >= 5 || online.matchTimer <= 0) {
+          const iWon = player.kos >= remoteHero.kos;
+          online.send({ type: 'match_end', outcomeForReceiver: iWon ? 'defeat' : 'victory', sharedScore: player.score + remoteHero.score });
+          showOnlineEndScreen(iWon ? 'victory' : 'defeat', player.score + remoteHero.score);
+        }
+      }
+    }
+
+    function showOnlineEndScreen(outcome, sharedScore) {
+      gameState = 'ended';
+      exitPointerLock();
+      const modal = document.getElementById('result-modal');
+      const title = document.getElementById('result-title');
+      const sub = document.getElementById('result-subtitle');
+      const stats = document.getElementById('result-stats');
+      const actions = document.getElementById('result-actions');
+
+      if (gameMode === 'online_coop') {
+        title.textContent = 'MISSION COMPLETE';
+        title.className = 'result-title victory';
+        sub.textContent = `Shared Team Score: ${sharedScore}`;
+      } else {
+        title.textContent = outcome === 'victory' ? 'VICTORY' : 'DEFEAT';
+        title.className = `result-title ${outcome === 'victory' ? 'victory' : 'defeat'}`;
+        sub.textContent = outcome === 'victory' ? 'You dominated the arena!' : `${online.friendLogin} won the match!`;
+      }
+
+      stats.innerHTML = `
+        <div><strong>${MY_LOGIN} (You)</strong></div><div>KOs: ${player.kos} · Score: ${player.score}</div>
+        <div><strong>${online.friendLogin}</strong></div><div>KOs: ${remoteHero.kos} · Score: ${remoteHero.score}</div>
+      `;
+
+      actions.innerHTML = '';
+      const rematchBtn = document.createElement('button');
+      rematchBtn.className = 'action-btn amber';
+      rematchBtn.textContent = 'Rematch';
+      rematchBtn.onclick = () => {
+        online.send({ type: 'rematch' });
+        restartOnlineMatch();
+      };
+      const menuBtn = document.createElement('button');
+      menuBtn.className = 'action-btn ghost';
+      menuBtn.textContent = 'Back to Menu';
+      menuBtn.onclick = () => {
+        online.handleDisconnect();
+        returnToMainMenu();
+      };
+      actions.append(rematchBtn, menuBtn);
+      modal.classList.add('active');
+    }
+
+    function restartOnlineMatch() {
+      document.getElementById('result-modal').classList.remove('active');
+      player.kos = 0;
+      player.score = 0;
+      remoteHero.kos = 0;
+      online.matchTimer = 180;
+      spawnLocalPlayerHero(selectedHeroId);
+      if (gameMode === 'online_coop') {
+        setupMission(selectedMissionIdx, !online.isHost);
+      }
+      gameState = 'playing';
+      requestPointerLockSafe();
+    }
+
+    function triggerSinglePlayerEnd(won, msg) {
+      gameState = 'ended';
+      exitPointerLock();
+      if (won) {
+        audio.victory();
+        if (gameMode === 'mission' && selectedMissionIdx === unlockedMission && unlockedMission < MISSIONS.length - 1) {
+          unlockedMission++;
+        }
+      }
+      const modal = document.getElementById('result-modal');
+      const title = document.getElementById('result-title');
+      const sub = document.getElementById('result-subtitle');
+      const stats = document.getElementById('result-stats');
+      const actions = document.getElementById('result-actions');
+
+      title.textContent = won ? 'MISSION COMPLETE' : 'GAME OVER';
+      title.className = `result-title ${won ? 'victory' : 'defeat'}`;
+      sub.textContent = msg;
+      stats.innerHTML = `
+        <div>Hero</div><div>${getHeroDef().name}</div>
+        <div>Score</div><div>${player.score}</div>
+      `;
+      actions.innerHTML = '';
+
+      if (won && gameMode === 'mission' && selectedMissionIdx < MISSIONS.length - 1) {
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'action-btn amber';
+        nextBtn.textContent = 'Next Mission';
+        nextBtn.onclick = () => {
+          selectedMissionIdx++;
+          modal.classList.remove('active');
+          startGameSession();
+        };
+        actions.appendChild(nextBtn);
+      }
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'action-btn amber';
+      retryBtn.textContent = 'Retry';
+      retryBtn.onclick = () => {
+        modal.classList.remove('active');
+        startGameSession();
+      };
+      const menuBtn = document.createElement('button');
+      menuBtn.className = 'action-btn ghost';
+      menuBtn.textContent = 'Main Menu';
+      menuBtn.onclick = () => {
+        modal.classList.remove('active');
+        returnToMainMenu();
+      };
+      actions.append(retryBtn, menuBtn);
+      modal.classList.add('active');
+    }
+
+    // =========================================================================
+    // 13. UI NAVIGATION & CHARACTER SELECTION PREVIEW
+    // =========================================================================
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      if (id) document.getElementById(id).classList.add('active');
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast-banner');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.style.display = 'none'; }, 3400);
+    }
+
+    function exitPointerLock() {
+      if (document.pointerLockElement) document.exitPointerLock();
+    }
+    function requestPointerLockSafe() {
+      try { renderer.domElement.requestPointerLock?.(); } catch {}
+    }
+
+    function updatePreviewHero(heroId) {
+      if (previewHeroMesh) previewGroup.remove(previewHeroMesh);
+      previewHeroMesh = buildHeroMesh(heroId);
+      previewHeroMesh.position.set(0, 0, 0);
+      previewGroup.add(previewHeroMesh);
+
+      const def = getHeroDef(heroId);
+      document.getElementById('sel-hero-name').textContent = def.name;
+      document.getElementById('sel-hero-name').style.color = def.color;
+      document.getElementById('sel-hero-desc').textContent = def.desc;
+      document.getElementById('stat-speed-val').textContent = def.stats.speed;
+      document.getElementById('stat-speed-bar').style.width = `${def.stats.speed}%`;
+      document.getElementById('stat-power-val').textContent = def.stats.power;
+      document.getElementById('stat-power-bar').style.width = `${def.stats.power}%`;
+      document.getElementById('stat-def-val').textContent = def.stats.defense;
+      document.getElementById('stat-def-bar').style.width = `${def.stats.defense}%`;
+      document.getElementById('stat-fly-val').textContent = def.stats.flying;
+      document.getElementById('stat-fly-bar').style.width = `${def.stats.flying}%`;
+      document.getElementById('sel-hero-abilities').innerHTML = def.abilitiesText;
+
+      document.querySelectorAll('.hero-card').forEach(c => {
+        c.classList.toggle('selected', c.dataset.hid === heroId);
+      });
+    }
+
+    function buildHeroRosterUI() {
+      const roster = document.getElementById('hero-roster');
+      roster.innerHTML = '';
+      HEROES.forEach(h => {
+        const card = document.createElement('div');
+        card.className = 'hero-card';
+        card.dataset.hid = h.id;
+        card.innerHTML = `
+          <div class="hero-card-bar" style="background:${h.color};"></div>
+          <div class="hero-card-name">${h.name}</div>
+          <div class="hero-card-role">${h.role}</div>
+        `;
+        card.onclick = () => {
+          selectedHeroId = h.id;
+          audio.token();
+          updatePreviewHero(h.id);
+        };
+        roster.appendChild(card);
+      });
+    }
+    buildHeroRosterUI();
+
+    function openCharacterSelect() {
+      gameState = 'charsel';
+      exitPointerLock();
+      showScreen('char-screen');
+      document.getElementById('crosshair').style.display = 'none';
+      document.getElementById('pointer-hint').style.display = 'none';
+      document.getElementById('ping-chip').style.display = online.connected ? 'flex' : 'none';
+
+      const onlineCard = document.getElementById('char-online-card');
+      if (online.connected) {
+        onlineCard.classList.add('active');
+        document.getElementById('char-my-login').textContent = MY_LOGIN;
+        document.getElementById('char-friend-login').textContent = online.friendLogin;
+        document.getElementById('char-host-mode-wrap').style.display = online.isHost ? 'flex' : 'none';
+        document.getElementById('char-mode-label').textContent = `Online ${online.mode.toUpperCase()} · Select Hero`;
+        syncOnlineModeUI();
+      } else {
+        onlineCard.classList.remove('active');
+        document.getElementById('char-mode-label').textContent =
+          gameMode === 'mission' ? `Mission ${selectedMissionIdx + 1} · Select Hero` : 'Free Roam · Select Hero';
+      }
+      updatePreviewHero(selectedHeroId);
+    }
+
+    function enterOnlineCharacterSelect() {
+      gameMode = online.mode === 'versus' ? 'online_versus' : 'online_coop';
+      openCharacterSelect();
+    }
+
+    function syncOnlineModeUI() {
+      document.querySelectorAll('#connect-mode-seg .seg-btn, #char-online-mode-seg .seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.omode === online.mode);
+      });
+      if (online.connected) {
+        gameMode = online.mode === 'versus' ? 'online_versus' : 'online_coop';
+        document.getElementById('char-mode-label').textContent = `Online ${online.mode.toUpperCase()} · Select Hero`;
+      }
+    }
+
+    function startGameSession() {
+      if (online.connected) {
+        online.active = true;
+        gameMode = online.mode === 'versus' ? 'online_versus' : 'online_coop';
+        online.matchTimer = 180;
+        player.kos = 0;
+        remoteHero.kos = 0;
+      } else {
+        online.active = false;
+      }
+
+      player.score = 0;
+      spawnLocalPlayerHero(selectedHeroId);
+
+      if (gameMode === 'mission') {
+        setupMission(selectedMissionIdx, false);
+      } else if (gameMode === 'online_coop') {
+        selectedMissionIdx = 0;
+        setupMission(0, !online.isHost);
+      } else if (gameMode === 'freeroam') {
+        clearMissionEntities();
+        for (let i = 0; i < 4; i++) spawnFreeRoamCrime();
+      } else if (gameMode === 'online_versus') {
+        clearMissionEntities();
+      }
+
+      const def = getHeroDef();
+      document.getElementById('hud-hero-name').textContent = def.name;
+      document.getElementById('ab-lmb-lbl').textContent = def.lmbLabel;
+      document.getElementById('ab-rmb-lbl').textContent = def.rmbLabel;
+      document.getElementById('ab-space-lbl').textContent = def.canFly ? 'Fly Up' : 'Jump';
+      document.getElementById('hud-player-list').classList.toggle('active', online.active);
+      document.getElementById('plist-me-name').textContent = `${MY_LOGIN} (You)`;
+      document.getElementById('plist-fr-name').textContent = online.friendLogin || 'Friend';
+
+      gameState = 'playing';
+      showScreen('hud-screen');
+      document.getElementById('crosshair').style.display = 'block';
+      document.getElementById('pointer-hint').style.display = 'block';
+      requestPointerLockSafe();
+    }
+
+    function returnToMainMenu() {
+      gameState = 'menu';
+      exitPointerLock();
+      clearMissionEntities();
+      document.querySelectorAll('.panel-modal').forEach(m => m.classList.remove('active'));
+      document.getElementById('crosshair').style.display = 'none';
+      document.getElementById('pointer-hint').style.display = 'none';
+      document.getElementById('interact-prompt').style.display = 'none';
+      document.getElementById('ping-chip').style.display = 'none';
+      showScreen('menu-screen');
+    }
+
+    // Menu & Button Wiring
+    document.getElementById('btn-mode-mission').onclick = () => {
+      gameMode = 'mission';
+      renderMissionList();
+      document.getElementById('mission-modal').classList.add('active');
+    };
+    document.getElementById('btn-mode-freeroam').onclick = () => {
+      gameMode = 'freeroam';
+      openCharacterSelect();
+    };
+    document.getElementById('btn-mode-connect').onclick = () => {
+      document.getElementById('connect-modal').classList.add('active');
+      online.initPeer();
+    };
+    document.getElementById('btn-connect-close').onclick = () => {
+      document.getElementById('connect-modal').classList.remove('active');
+    };
+    document.getElementById('btn-copy-login').onclick = () => {
+      navigator.clipboard?.writeText(MY_LOGIN).catch(() => {});
+      showToast(`Copied login: ${MY_LOGIN}`);
+    };
+    document.getElementById('btn-join-friend').onclick = () => {
+      const val = document.getElementById('friend-login-input').value;
+      online.joinFriend(val);
+    };
+
+    document.querySelectorAll('#connect-mode-seg .seg-btn, #char-online-mode-seg .seg-btn').forEach(btn => {
+      btn.onclick = () => {
+        if (online.connected && !online.isHost) {
+          showToast('Only the Host can change the Online Match Mode.');
+          return;
+        }
+        online.mode = btn.dataset.omode;
+        syncOnlineModeUI();
+        if (online.connected) online.send({ type: 'mode_change', mode: online.mode });
+      };
+    });
+
+    function renderMissionList() {
+      const list = document.getElementById('mission-list');
+      list.innerHTML = '';
+      MISSIONS.forEach((m, i) => {
+        const locked = i > unlockedMission;
+        const item = document.createElement('div');
+        item.className = `mission-item ${locked ? 'locked' : ''} ${i === selectedMissionIdx ? 'selected' : ''}`;
+        item.innerHTML = `
+          <div>
+            <div style="font-family:var(--font-display); font-weight:700;">${m.name}</div>
+            <div style="font-size:clamp(11px,0.75vw,21px); color:var(--text-muted);">${m.desc}</div>
+          </div>
+          <div style="font-weight:700; color:${locked ? '#64748b' : '#fbbf24'};">${locked ? 'Locked' : 'Ready'}</div>
+        `;
+        if (!locked) {
+          item.onclick = () => {
+            selectedMissionIdx = i;
+            renderMissionList();
+          };
+        }
+        list.appendChild(item);
+      });
+    }
+    document.getElementById('btn-mission-close').onclick = () => {
+      document.getElementById('mission-modal').classList.remove('active');
+    };
+    document.getElementById('btn-mission-proceed').onclick = () => {
+      document.getElementById('mission-modal').classList.remove('active');
+      openCharacterSelect();
+    };
+
+    document.getElementById('btn-char-back').onclick = () => {
+      if (online.connected) online.handleDisconnect();
+      returnToMainMenu();
+    };
+    document.getElementById('btn-start-game').onclick = startGameSession;
+
+    // Pause / Controls / Quality / Fullscreen
+    function togglePause() {
+      if (gameState === 'playing') {
+        gameState = 'paused';
+        exitPointerLock();
+        document.getElementById('pause-modal').classList.add('active');
+      } else if (gameState === 'paused') {
+        gameState = 'playing';
+        document.getElementById('pause-modal').classList.remove('active');
+        requestPointerLockSafe();
+      }
+    }
+    document.getElementById('btn-hud-pause').onclick = togglePause;
+    document.getElementById('btn-pause-resume').onclick = togglePause;
+    document.getElementById('btn-pause-switch-hero').onclick = () => {
+      document.getElementById('pause-modal').classList.remove('active');
+      openCharacterSelect();
+    };
+    document.getElementById('btn-pause-controls').onclick = () => {
+      document.getElementById('controls-modal').classList.add('active');
+    };
+    document.getElementById('btn-pause-mainmenu').onclick = () => {
+      if (online.connected) online.handleDisconnect();
+      returnToMainMenu();
+    };
+    document.getElementById('btn-menu-controls').onclick = () => {
+      document.getElementById('controls-modal').classList.add('active');
+    };
+    document.getElementById('btn-controls-close').onclick = () => {
+      document.getElementById('controls-modal').classList.remove('active');
+    };
+    document.getElementById('btn-hide-guide').onclick = () => {
+      document.getElementById('hud-controls-guide').style.display = 'none';
+    };
+
+    document.querySelectorAll('#quality-selector .seg-btn').forEach(btn => {
+      btn.onclick = () => {
+        graphicsQuality = btn.dataset.q;
+        applyGraphicsSettings();
+      };
+    });
+    document.getElementById('btn-quality-top').onclick = () => {
+      const order = ['low', 'high', 'ultra'];
+      graphicsQuality = order[(order.indexOf(graphicsQuality) + 1) % order.length];
+      applyGraphicsSettings();
+    };
+    document.getElementById('btn-fullscreen').onclick = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+
+    // =========================================================================
+    // 14. INPUT LISTENERS (Keyboard, PointerLock Mouse, Abilities)
+    // =========================================================================
+    window.addEventListener('keydown', (e) => {
+      const code = e.code;
+      keys[code] = true;
+
+      if (gameState !== 'playing') {
+        if (code === 'Escape' && gameState === 'paused') togglePause();
+        return;
+      }
+
+      if (code === 'KeyP') {
+        togglePause();
+        return;
+      }
+
+      const def = getHeroDef();
+      if (code === 'Space') {
+        e.preventDefault();
+        if (def.canFly) {
+          if (!player.flying && !player.grounded) {
+            player.flying = true;
+          } else if (player.grounded) {
+            player.vel.y = def.jumpForce;
+            player.grounded = false;
+            player.flying = true;
+            audio.jump();
+          }
+        } else {
+          if (player.swinging) {
+            player.swinging = false;
+            webLineMesh.visible = false;
+            player.vel.y = def.jumpForce * 0.9;
+            audio.jump();
+          } else if (player.grounded) {
+            player.vel.y = def.jumpForce;
+            player.grounded = false;
+            player.jumpsLeft = def.doubleJump ? 1 : 0;
+            audio.jump();
+          } else if (player.jumpsLeft > 0) {
+            player.vel.y = def.jumpForce * 0.92;
+            player.jumpsLeft--;
+            audio.jump();
+            spawnParticles(player.pos, 0xffffff, 8, 8);
+          }
+        }
+      }
+
+      if (code === 'KeyQ') performUltimate();
+
+      if (code === 'KeyE') {
+        // Rescue nearby citizen in Mission 2
+        for (const r of rescueTargets) {
+          if (!r.rescued && r.mesh.position.distanceTo(player.pos) < 5.0) {
+            r.rescued = true;
+            r.mesh.visible = false;
+            missionProgress.done++;
+            player.score += 300;
+            audio.token();
+            spawnParticles(r.mesh.position, 0x38bdf8, 16, 10);
+            showToast(`Citizen Rescued! (${missionProgress.done}/${missionProgress.total})`);
+            break;
+          }
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    renderer.domElement.addEventListener('mousedown', (e) => {
+      if (gameState !== 'playing') return;
+      if (!pointerLocked) {
+        requestPointerLockSafe();
+        return;
+      }
+      if (e.button === 0) performPrimaryAttack();
+      if (e.button === 2) performSecondaryAbility();
+    });
+
+    renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    document.addEventListener('pointerlockchange', () => {
+      pointerLocked = document.pointerLockElement === renderer.domElement;
+      document.getElementById('pointer-hint').style.display = (gameState === 'playing' && !pointerLocked) ? 'block' : 'none';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (gameState !== 'playing' || !pointerLocked) return;
+      player.camYaw -= e.movementX * 0.0022;
+      player.camPitch = THREE.MathUtils.clamp(player.camPitch + e.movementY * 0.0022, -0.55, 1.15);
+    });
+
+    // =========================================================================
+    // 15. MAIN GAME LOOP (Simulation, AI, Projectiles, HUD, Mini-Map, Render)
+    // =========================================================================
+    const minimapCtx = document.getElementById('minimap-canvas').getContext('2d');
+    const _clock = new THREE.Clock();
+    let clockTime = 0;
+    let fpsFrames = 0, fpsTimer = 0;
+
+    function updateGameplay(dt) {
+      const def = getHeroDef();
+
+      // Cooldowns & Energy Regen
+      player.lmbCd = Math.max(0, player.lmbCd - dt);
+      player.rmbCd = Math.max(0, player.rmbCd - dt);
+      player.ultCd = Math.max(0, player.ultCd - dt);
+      player.attackAnim = Math.max(0, player.attackAnim - dt);
+      player.energy = Math.min(player.maxEnergy, player.energy + dt * 11);
+
+      if (player.deadTimer > 0) {
+        player.deadTimer -= dt;
+        if (player.deadTimer <= 0) {
+          player.hp = player.maxHp;
+          player.pos.set(online.isHost ? -22 : 22, 0.3, (Math.random() - 0.5) * 20);
+        }
+      }
+
+      // Movement Input
+      let moveX = 0, moveZ = 0;
+      if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+      if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+      const sprinting = keys['ShiftLeft'] || keys['ShiftRight'];
+      const spd = sprinting ? def.sprintSpeed : def.moveSpeed;
+      const sinY = Math.sin(player.camYaw);
+      const cosY = Math.cos(player.camYaw);
+
+      const wishX = moveX * cosY + moveZ * sinY;
+      const wishZ = -moveX * sinY + moveZ * cosY;
+      const wishLen = Math.hypot(wishX, wishZ);
+      const nx = wishLen > 0.01 ? wishX / wishLen : 0;
+      const nz = wishLen > 0.01 ? wishZ / wishLen : 0;
+
+      if (player.swinging) {
+        // Pendulum Web-Swing Physics
+        const toAnchor = player.swingAnchor.clone().sub(player.pos);
+        const dist = toAnchor.length();
+        const dirA = toAnchor.normalize();
+        player.vel.y -= 28 * dt;
+        player.vel.addScaledVector(dirA, 22 * dt);
+        if (wishLen > 0.01) {
+          player.vel.x += nx * 24 * dt;
+          player.vel.z += nz * 24 * dt;
+        }
+        if (dist > player.swingLen) {
+          player.pos.copy(player.swingAnchor).addScaledVector(dirA, -player.swingLen);
+          const radial = player.vel.dot(dirA);
+          if (radial < 0) player.vel.addScaledVector(dirA, -radial);
+        }
+        webLineMesh.visible = true;
+        const posAttr = webLineGeo.attributes.position;
+        posAttr.setXYZ(0, player.pos.x, player.pos.y + 1.6, player.pos.z);
+        posAttr.setXYZ(1, player.swingAnchor.x, player.swingAnchor.y, player.swingAnchor.z);
+        posAttr.needsUpdate = true;
+        if (player.pos.y <= 0.35) {
+          player.swinging = false;
+          webLineMesh.visible = false;
+        }
+      } else if (def.canFly && player.flying) {
+        // Flight Physics
+        const flyMult = sprinting ? 1.55 : 1.0;
+        player.vel.x = THREE.MathUtils.damp(player.vel.x, nx * spd * flyMult, 8, dt);
+        player.vel.z = THREE.MathUtils.damp(player.vel.z, nz * spd * flyMult, 8, dt);
+        let vyTarget = 0;
+        if (keys['Space']) vyTarget = 22;
+        else if (keys['KeyC']) vyTarget = -22;
+        player.vel.y = THREE.MathUtils.damp(player.vel.y, vyTarget, 8, dt);
+        if (player.pos.y <= 0.32 && keys['KeyC']) {
+          player.flying = false;
+          player.grounded = true;
+        }
+      } else {
+        // Ground & Jump Physics
+        player.vel.x = THREE.MathUtils.damp(player.vel.x, nx * spd, player.grounded ? 14 : 5, dt);
+        player.vel.z = THREE.MathUtils.damp(player.vel.z, nz * spd, player.grounded ? 14 : 5, dt);
+        player.vel.y -= 38 * dt;
+      }
+
+      player.pos.addScaledVector(player.vel, dt);
+      const col = resolveWorldCollisions(player.pos, player.vel, def.id === 'greengiant' ? 1.0 : 0.7, 2.1);
+
+      // Web Swinger Wall-Climbing when touching building & pressing W
+      if (def.wallClimb && col.touchingWall && (keys['KeyW'] || keys['Space'])) {
+        player.vel.y = 14;
+        player.grounded = false;
+      }
+
+      // Ground check
+      if (player.pos.y <= 0.24) {
+        const wasFastFall = !player.grounded && player.vel.y < -26;
+        player.pos.y = 0.24;
+        player.vel.y = 0;
+        player.grounded = true;
+        player.flying = false;
+        player.jumpsLeft = def.doubleJump ? 1 : 0;
+        // Green Giant seismic landing smash!
+        if (wasFastFall && def.id === 'greengiant') {
+          audio.smash();
+          spawnShockwave(player.pos, 0x4ade80, 9, 0.35);
+          damageEnemiesInRadius(player.pos, 8, 55);
+          damageDestructiblesInRadius(player.pos, 8, 65);
+        }
+      } else if (col.groundedOnRoof) {
+        player.grounded = true;
+        player.flying = false;
+        player.jumpsLeft = def.doubleJump ? 1 : 0;
+      } else {
+        player.grounded = false;
+      }
+
+      // Face movement or aim direction
+      if (wishLen > 0.1 || player.attackAnim > 0) {
+        const targetYaw = player.attackAnim > 0 ? (player.camYaw + Math.PI) : Math.atan2(nx, nz);
+        let diff = targetYaw - player.yaw;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        player.yaw += diff * Math.min(1, dt * 14);
+      }
+
+      if (playerMesh) {
+        playerMesh.position.copy(player.pos);
+        playerMesh.rotation.y = player.yaw;
+        animateHeroMesh(playerMesh, {
+          vx: player.vel.x, vy: player.vel.y, vz: player.vel.z,
+          grounded: player.grounded,
+          flying: player.flying,
+          swinging: player.swinging,
+          shieldOut: player.shieldOut,
+          attackAnim: player.attackAnim,
+          attackType: player.attackType,
+        }, dt, clockTime);
+      }
+
+      // Smooth 3rd-Person Camera Follow with Wall-Avoidance
+      const camDist = def.id === 'greengiant' ? 9.5 : 7.5;
+      const desiredCam = new THREE.Vector3(
+        player.pos.x + Math.sin(player.camYaw) * Math.cos(player.camPitch) * camDist,
+        player.pos.y + 2.5 + Math.sin(player.camPitch) * camDist,
+        player.pos.z + Math.cos(player.camYaw) * Math.cos(player.camPitch) * camDist
+      );
+      desiredCam.y = Math.max(0.9, desiredCam.y);
+      camPosCur.lerp(desiredCam, Math.min(1, dt * 14));
+      camLookCur.lerp(new THREE.Vector3(player.pos.x, player.pos.y + 1.9, player.pos.z), Math.min(1, dt * 18));
+      camera.position.copy(camPosCur);
+      camera.lookAt(camLookCur);
+
+      // Token collection (Free Roam)
+      if (gameMode === 'freeroam') {
+        for (const t of tokens) {
+          if (t.collected) continue;
+          t.mesh.rotation.y += dt * 2.4;
+          if (t.mesh.position.distanceTo(player.pos.clone().add(new THREE.Vector3(0, 1, 0))) < 2.6) {
+            t.collected = true;
+            t.mesh.visible = false;
+            player.score += 200;
+            audio.token();
+            spawnParticles(t.mesh.position, 0xfbbf24, 14, 12);
+            showToast('Hero Token Collected! +200');
+          }
+        }
+        if (Math.random() < dt * 0.25) spawnFreeRoamCrime();
+      }
+
+      // Update Traffic Cars & Citizens
+      for (const c of trafficCars) {
+        if (c.axis === 'x') {
+          c.mesh.position.x += c.dir * c.speed * dt;
+          if (Math.abs(c.mesh.position.x) > HALF_WORLD + 20) c.mesh.position.x = -c.dir * (HALF_WORLD + 15);
+        } else {
+          c.mesh.position.z += c.dir * c.speed * dt;
+          if (Math.abs(c.mesh.position.z) > HALF_WORLD + 20) c.mesh.position.z = -c.dir * (HALF_WORLD + 15);
+        }
+      }
+      for (const cit of citizens) {
+        cit.timer -= dt;
+        if (cit.timer <= 0) {
+          cit.timer = 3 + Math.random() * 4;
+          const a = Math.random() * Math.PI * 2;
+          cit.vx = Math.cos(a) * 2.6;
+          cit.vz = Math.sin(a) * 2.6;
+        }
+        cit.mesh.position.x = THREE.MathUtils.clamp(cit.mesh.position.x + cit.vx * dt, -HALF_WORLD, HALF_WORLD);
+        cit.mesh.position.z = THREE.MathUtils.clamp(cit.mesh.position.z + cit.vz * dt, -HALF_WORLD, HALF_WORLD);
+        cit.mesh.rotation.y = Math.atan2(cit.vx, cit.vz);
+      }
+
+      // Respawn destructibles after 28s
+      for (const d of destructibles) {
+        if (d.broken) {
+          d.respawnTimer -= dt;
+          if (d.respawnTimer <= 0) {
+            d.broken = false;
+            d.hp = d.maxHp;
+            d.mesh.visible = true;
+          }
+        }
+      }
+
+      // Update Enemies AI
+      const aiActive = !online.active || (gameMode === 'online_coop' && online.isHost);
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (e.dead) continue;
+        const targetPos = (online.active && remoteHero.visible && remoteHero.pos.distanceTo(e.mesh.position) < player.pos.distanceTo(e.mesh.position))
+          ? remoteHero.pos : player.pos;
+
+        const toP = targetPos.clone().sub(e.mesh.position);
+        const flatDist = Math.hypot(toP.x, toP.z);
+
+        if (aiActive) {
+          if (e.flying) {
+            e.mesh.position.y = e.baseY + Math.sin(clockTime * 2.5 + i) * 2.2;
+            if (flatDist > 16) {
+              e.mesh.position.x += (toP.x / flatDist) * 8 * dt;
+              e.mesh.position.z += (toP.z / flatDist) * 8 * dt;
+            }
+          } else {
+            const spdE = e.kind === 'boss' ? 7.5 : 6.0;
+            if (flatDist > 4.2) {
+              e.mesh.position.x += (toP.x / flatDist) * spdE * dt;
+              e.mesh.position.z += (toP.z / flatDist) * spdE * dt;
+            }
+          }
+          e.mesh.rotation.y = Math.atan2(toP.x, toP.z);
+        }
+
+        e.shootTimer -= dt;
+        if (e.shootTimer <= 0 && flatDist < 55) {
+          e.shootTimer = e.kind === 'boss' ? 1.35 : (e.kind === 'flying_robot' ? 1.5 : 2.3);
+          const origin = e.mesh.position.clone().add(new THREE.Vector3(0, e.kind === 'boss' ? 4 : 1.5, 0));
+          const aim = targetPos.clone().add(new THREE.Vector3(0, 1.2, 0)).sub(origin).normalize();
+          spawnProjectile('enemy_plasma', origin, aim, 34, e.kind === 'boss' ? 18 : 10, 0xef4444, false);
+        }
+      }
+
+      // Projectiles & Shield Ricochet Logic
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const pr = projectiles[i];
+        pr.life -= dt;
+
+        if (pr.kind === 'shield') {
+          pr.mesh.rotation.y += dt * 22;
+          if (pr.returning) {
+            const backTarget = player.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
+            const toP = backTarget.sub(pr.mesh.position);
+            if (toP.length() < 1.8) {
+              scene.remove(pr.mesh);
+              projectiles.splice(i, 1);
+              player.shieldOut = false;
+              continue;
+            }
+            pr.vel.copy(toP.normalize().multiplyScalar(54));
+          }
+        } else if (pr.kind === 'missile' && pr.fromPlayer) {
+          // Slight homing toward nearest enemy
+          let nearest = null, minD = 45;
+          for (const e of enemies) {
+            if (e.dead) continue;
+            const d = e.mesh.position.distanceTo(pr.mesh.position);
+            if (d < minD) { minD = d; nearest = e; }
+          }
+          if (nearest) {
+            const desired = nearest.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)).sub(pr.mesh.position).normalize().multiplyScalar(pr.speed);
+            pr.vel.lerp(desired, Math.min(1, dt * 6));
+          }
+        }
+
+        pr.mesh.position.addScaledVector(pr.vel, dt);
+
+        let hitSomething = false;
+        if (pr.fromPlayer) {
+          for (const e of enemies) {
+            if (e.dead) continue;
+            const ep = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+            if (ep.distanceTo(pr.mesh.position) <= e.radius + 0.9) {
+              applyDamageToEnemy(e, pr.dmg, true);
+              hitSomething = true;
+              if (pr.kind === 'shield' && pr.bouncesLeft > 0) {
+                pr.bouncesLeft--;
+                audio.shield();
+                // Find next enemy to bounce to, else return!
+                const nextE = enemies.find(x => !x.dead && x !== e && x.mesh.position.distanceTo(pr.mesh.position) < 24);
+                if (nextE) {
+                  pr.vel.copy(nextE.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)).sub(pr.mesh.position).normalize().multiplyScalar(pr.speed));
+                  hitSomething = false;
+                } else {
+                  pr.returning = true;
+                  hitSomething = false;
+                }
+              }
+              break;
+            }
+          }
+          if (!hitSomething && online.active && gameMode === 'online_versus' && remoteHero.visible && remoteHero.hp > 0) {
+            const rp = remoteHero.pos.clone().add(new THREE.Vector3(0, 1.2, 0));
+            if (rp.distanceTo(pr.mesh.position) <= 1.8) {
+              online.send({ type: 'pvp_hit', damage: pr.dmg, from: MY_LOGIN });
+              spawnParticles(rp, 0xef4444, 12, 12);
+              hitSomething = true;
+            }
+          }
+          if (!hitSomething) {
+            for (const d of destructibles) {
+              if (!d.broken && d.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)).distanceTo(pr.mesh.position) <= d.radius + 0.7) {
+                d.hp -= pr.dmg;
+                if (d.hp <= 0) destroyDestructible(d, true);
+                hitSomething = pr.kind !== 'shield';
+                if (pr.kind === 'shield') pr.returning = true;
+                break;
+              }
+            }
+          }
+        } else if (pr.kind === 'enemy_plasma') {
+          if (pr.mesh.position.distanceTo(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0))) < 1.5) {
+            takePlayerDamage(pr.dmg);
+            hitSomething = true;
+          }
+        }
+
+        if (hitSomething || pr.mesh.position.y < 0.1 || pr.life <= 0) {
+          if (pr.kind === 'shield' && !pr.returning && pr.life > 0.4) {
+            pr.returning = true;
+            continue;
+          }
+          if (pr.kind === 'shield') player.shieldOut = false;
+          if (pr.kind === 'missile') {
+            spawnParticles(pr.mesh.position, 0xf97316, 14, 14);
+            audio.explode();
+          }
+          scene.remove(pr.mesh);
+          projectiles.splice(i, 1);
+        }
+      }
+
+      // Mission & Versus Timers + Win Checks
+      if (gameMode === 'mission' || gameMode === 'online_coop') {
+        missionTimer = Math.max(0, missionTimer - dt);
+        const m = MISSIONS[selectedMissionIdx];
+        const aliveCount = enemies.filter(e => !e.dead).length;
+        const doneNow = m.type === 'rescue' ? (missionProgress.done >= missionProgress.total) : (aliveCount === 0 && missionProgress.total > 0);
+        if (doneNow) {
+          if (gameMode === 'online_coop') {
+            const teamScore = player.score + remoteHero.score;
+            if (online.isHost) {
+              online.send({ type: 'match_end', outcomeForReceiver: 'victory', sharedScore: teamScore });
+              showOnlineEndScreen('victory', teamScore);
+            }
+          } else {
+            triggerSinglePlayerEnd(true, `${m.name} completed!`);
+          }
+        } else if (missionTimer <= 0 && gameMode === 'mission') {
+          triggerSinglePlayerEnd(false, 'Mission time expired!');
+        }
+      } else if (gameMode === 'online_versus') {
+        online.matchTimer = Math.max(0, online.matchTimer - dt);
+        if (online.matchTimer <= 0 && online.isHost) {
+          checkOnlineEndConditions();
+        }
+      }
+
+      // Interaction prompt for Rescue
+      let nearCitizen = false;
+      for (const r of rescueTargets) {
+        if (!r.rescued && r.mesh.position.distanceTo(player.pos) < 5.0) {
+          nearCitizen = true;
+          break;
+        }
+      }
+      const promptEl = document.getElementById('interact-prompt');
+      promptEl.style.display = nearCitizen ? 'block' : 'none';
+      if (nearCitizen) promptEl.textContent = '[E] Rescue Citizen';
+
+      // Online 20Hz Sync & Remote Interpolation
+      online.tick(dt);
+    }
+
+    function updateVFX(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt;
+        p.vy -= 22 * dt;
+        p.mesh.position.x += p.vx * dt;
+        p.mesh.position.y = Math.max(0.1, p.mesh.position.y + p.vy * dt);
+        p.mesh.position.z += p.vz * dt;
+        p.mesh.scale.setScalar(Math.max(0.01, p.life / p.maxLife));
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          particles.splice(i, 1);
+        }
+      }
+      for (let i = beams.length - 1; i >= 0; i--) {
+        const b = beams[i];
+        b.life -= dt;
+        b.mesh.material.opacity = Math.max(0, b.life / b.maxLife);
+        if (b.life <= 0) {
+          scene.remove(b.mesh);
+          b.mesh.geometry.dispose();
+          b.mesh.material.dispose();
+          beams.splice(i, 1);
+        }
+      }
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const s = shockwaves[i];
+        s.life -= dt;
+        const p = 1 - s.life / s.maxLife;
+        const sc = 1 + p * s.maxRadius;
+        s.mesh.scale.set(sc, sc, sc);
+        s.mesh.material.opacity = Math.max(0, 1 - p);
+        if (s.life <= 0) {
+          scene.remove(s.mesh);
+          s.mesh.geometry.dispose();
+          s.mesh.material.dispose();
+          shockwaves.splice(i, 1);
+        }
+      }
+    }
+
+    function updateHUD() {
+      document.getElementById('hud-score-val').textContent = String(player.score);
+      document.getElementById('hud-hp-text').textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+      document.getElementById('hud-hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+      document.getElementById('hud-en-text').textContent = `${Math.round(player.energy)} / 100`;
+      document.getElementById('hud-en-bar').style.width = `${player.energy}%`;
+
+      const ultReady = player.ultCd <= 0.05;
+      const ultPct = ultReady ? 100 : ((player.ultMaxCd - player.ultCd) / player.ultMaxCd) * 100;
+      document.getElementById('hud-ult-text').textContent = ultReady ? 'READY' : `${player.ultCd.toFixed(1)}s`;
+      document.getElementById('hud-ult-bar').style.width = `${ultPct}%`;
+      document.getElementById('ab-q').classList.toggle('ready', ultReady);
+      document.getElementById('ab-lmb').classList.toggle('ready', player.lmbCd <= 0.05);
+      document.getElementById('ab-rmb').classList.toggle('ready', player.rmbCd <= 0.05);
+
+      const objTitle = document.getElementById('hud-obj-title');
+      const objText = document.getElementById('hud-obj-text');
+      const timerVal = document.getElementById('hud-timer-val');
+      const extraStat = document.getElementById('hud-extra-stat');
+
+      let arrowTarget = null;
+      if (gameMode === 'mission' || gameMode === 'online_coop') {
+        const m = MISSIONS[selectedMissionIdx];
+        objTitle.textContent = gameMode === 'online_coop' ? `CO-OP: ${m.name}` : m.name;
+        objText.textContent = m.desc;
+        const mins = Math.floor(missionTimer / 60);
+        const secs = Math.floor(missionTimer % 60);
+        timerVal.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+        if (gameMode === 'online_coop') {
+          extraStat.textContent = `Team Score: ${player.score + remoteHero.score}`;
+        }
+        if (m.type === 'rescue') {
+          const r = rescueTargets.find(x => !x.rescued);
+          if (r) arrowTarget = r.mesh.position;
+        } else {
+          const e = enemies.find(x => !x.dead);
+          if (e) arrowTarget = e.mesh.position;
+        }
+      } else if (gameMode === 'online_versus') {
+        objTitle.textContent = 'VERSUS PvP · FIRST TO 5 KOs';
+        objText.textContent = `${MY_LOGIN}: ${player.kos} KOs  vs  ${online.friendLogin}: ${remoteHero.kos} KOs`;
+        const mins = Math.floor(online.matchTimer / 60);
+        const secs = Math.floor(online.matchTimer % 60);
+        timerVal.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+        extraStat.textContent = `Ping: ${online.pingMs} ms`;
+        if (remoteHero.visible) arrowTarget = remoteHero.pos;
+      } else {
+        objTitle.textContent = 'FREE ROAM MODE';
+        objText.textContent = 'Explore the city, defeat street criminals, and collect Hero Tokens.';
+        timerVal.textContent = 'Unlimited';
+        const e = enemies.find(x => !x.dead);
+        const t = tokens.find(x => !x.collected);
+        arrowTarget = e ? e.mesh.position : (t ? t.mesh.position : null);
+      }
+
+      if (online.active) {
+        document.getElementById('plist-me-stat').textContent = `${Math.ceil(player.hp)} HP · ${player.kos} KO`;
+        document.getElementById('plist-fr-stat').textContent = `${Math.ceil(remoteHero.hp)} HP · ${remoteHero.kos} KO`;
+      }
+
+      const arrowWrap = document.getElementById('dir-arrow-wrap');
+      if (arrowTarget) {
+        arrowWrap.style.display = 'flex';
+        const dx = arrowTarget.x - player.pos.x;
+        const dz = arrowTarget.z - player.pos.z;
+        const dist = Math.round(Math.hypot(dx, dz));
+        const worldAng = Math.atan2(dx, dz);
+        const relAng = worldAng - (player.camYaw + Math.PI);
+        document.getElementById('dir-arrow').style.transform = `rotate(${-relAng}rad)`;
+        document.getElementById('dir-dist').textContent = `Target: ${dist}m`;
+      } else {
+        arrowWrap.style.display = 'none';
+      }
+
+      drawMinimap();
+    }
+
+    function drawMinimap() {
+      const ctx = minimapCtx;
+      const w = 220, h = 220;
+      ctx.fillStyle = '#090e1a';
+      ctx.fillRect(0, 0, w, h);
+
+      const scale = w / (HALF_WORLD * 2.2);
+      const cx = w / 2, cy = h / 2;
+
+      // Buildings
+      ctx.fillStyle = '#1e293b';
+      for (const b of buildingBoxes) {
+        const bx = cx + b.minX * scale;
+        const bz = cy + b.minZ * scale;
+        const bw = (b.maxX - b.minX) * scale;
+        const bd = (b.maxZ - b.minZ) * scale;
+        ctx.fillRect(bx, bz, bw, bd);
+      }
+
+      // Tokens
+      ctx.fillStyle = '#fbbf24';
+      for (const t of tokens) {
+        if (t.collected) continue;
+        ctx.fillRect(cx + t.mesh.position.x * scale - 2, cy + t.mesh.position.z * scale - 2, 4, 4);
+      }
+
+      // Enemies
+      ctx.fillStyle = '#ef4444';
+      for (const e of enemies) {
+        if (e.dead) continue;
+        ctx.beginPath();
+        ctx.arc(cx + e.mesh.position.x * scale, cy + e.mesh.position.z * scale, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Friend
+      if (online.active && remoteHero.visible) {
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(cx + remoteHero.pos.x * scale, cy + remoteHero.pos.z * scale, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Local Player
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(cx + player.pos.x * scale, cy + player.pos.z * scale, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Software-WebGL GPU completion pacing
+    let frameHandle = 0;
+    function afterDraw(cb) {
+      const gl = renderer.getContext();
+      if (!gl || !gl.fenceSync) {
+        frameHandle = setTimeout(cb, 80);
+        return;
+      }
+      const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+      gl.flush();
+      const poll = () => {
+        const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
+        if (state === gl.UNSIGNALED) {
+          frameHandle = setTimeout(poll, 5);
+        } else {
+          if (sync) gl.deleteSync(sync);
+          frameHandle = setTimeout(cb, 80);
+        }
+      };
+      frameHandle = setTimeout(poll, 5);
+    }
+
+    function tick() {
+      const dt = Math.min(0.05, _clock.getDelta());
+      clockTime += dt;
+
+      // FPS Counter
+      fpsFrames++;
+      fpsTimer += dt;
+      if (fpsTimer >= 0.5) {
+        document.getElementById('fps-val').textContent = String(Math.round(fpsFrames / fpsTimer));
+        fpsFrames = 0;
+        fpsTimer = 0;
+      }
+
+      if (gameState === 'charsel') {
+        // Rotating 3D Hero Preview Stage
+        if (previewHeroMesh) {
+          previewHeroMesh.rotation.y += dt * 0.9;
+          animateHeroMesh(previewHeroMesh, { vx: 0, vz: 0, grounded: true }, dt, clockTime);
+        }
+        camera.position.set(0, 501.65, 4.7);
+        camera.lookAt(0, 501.1, 0);
+        updateDayNight(dt * 0.2, previewGroup.position);
+      } else if (gameState === 'menu') {
+        // Scenic flyover of the 3D Metropolis in Menu background
+        const ang = clockTime * 0.08;
+        camera.position.set(Math.cos(ang) * 115, 58, Math.sin(ang) * 115);
+        camera.lookAt(0, 18, 0);
+        updateDayNight(dt, new THREE.Vector3(0, 0, 0));
+      } else if (gameState === 'playing') {
+        updateGameplay(dt);
+        updateVFX(dt);
+        updateDayNight(dt, player.pos);
+        updateHUD();
+      } else if (gameState === 'paused' || gameState === 'ended') {
+        online.tick(dt);
+      }
+
+      if (isSoftwareGl || graphicsQuality === 'low') {
+        renderer.render(scene, camera);
+      } else {
+        composer.render();
+      }
+
+      if (isSoftwareGl) afterDraw(tick);
+      else frameHandle = requestAnimationFrame(tick);
+    }
+
+    applyGraphicsSettings();
+    tick();
+  </script>
+</body>
+</html>

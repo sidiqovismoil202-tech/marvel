@@ -1,0 +1,6 @@
+{
+  "name": "SuperHero City 4K",
+  "description": "3D superhero action game in Three.js with 5 heroes, missions, free roam, and PeerJS online multiplayer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
